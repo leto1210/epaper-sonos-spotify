@@ -11,12 +11,13 @@ ligne : le boîtier interroge directement vos enceintes sur le réseau local.
 ## Fonctionnalités
 
 - Pochette d'album téléchargée depuis l'enceinte et tramée pour l'ePaper 6 couleurs
-- Titre, artiste, album, zone Sonos et position dans le morceau
+- Titre, artiste, album, zone Sonos et durée du morceau
 - Boutons physiques : morceau précédent / suivant / play-pause
 - Intégration Home Assistant via MQTT Discovery (batterie, température, humidité, morceau
   en cours, bouton de rafraîchissement, sélection de zone)
 - Écran météo quand rien ne joue : conditions du moment, prévisions horaires, et comparaison
-  avec la température intérieure mesurée par le boîtier
+  avec la température intérieure mesurée par le boîtier — il prend aussi la place d'un
+  morceau en pause depuis plus de cinq minutes
 - Fonctionne sur batterie : l'écran n'est redessiné que lorsque le morceau change
 
 ## Matériel
@@ -54,9 +55,13 @@ Détails de compilation, génération de `driver.h` et dépannage : [docs/build.
 
 ## Limites connues
 
-- Un rafraîchissement complet de l'ePaper Spectra 6 prend **25–30 s** et il n'existe pas de
-  rafraîchissement partiel en couleur : la barre de progression est figée à l'instant du
-  rendu, elle n'avance pas en continu.
+- Un rafraîchissement complet de l'ePaper Spectra 6 prend **37 s** — mesuré, au-dessus des
+  25–30 s annoncés — et il n'existe pas de rafraîchissement partiel en couleur. C'est
+  pourquoi l'écran affiche la durée du morceau et non une barre de progression : celle-ci
+  serait figée à l'instant du rendu.
+- Spotify Connect ne fournit les métadonnées **que pendant la lecture effective** : une
+  enceinte mise en pause ne dit plus ce qu'elle joue. Le boîtier conserve donc la dernière
+  fiche connue, jusqu'à la bascule sur la météo.
 - Sonos S2 uniquement (l'API UPnP locale de S1 diffère et n'est pas testée).
 - La découverte SSDP repose sur du multicast : elle ne fonctionne que si le boîtier et les
   enceintes partagent le même sous-réseau. Si le boîtier est sur un VLAN « objets

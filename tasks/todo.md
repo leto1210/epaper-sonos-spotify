@@ -3,6 +3,33 @@
 Une livraison = un commit autonome et flashable. On ne passe pas à la suivante tant que le
 test de la précédente ne passe pas.
 
+## Reprise — séance du 10 août 2026, hors matériel
+
+Le boîtier ne sera pas branché : tout ce qui suit se fait au clavier, avec
+`pio test -e native` et `pio run` comme seuls juges. Le matériel servira ensuite à valider.
+
+État au 9 août 2026 au soir : **L0 à L13 terminées et validées sur cible**, 81 tests au vert,
+huit commits locaux **non poussés** (`git log origin/main..main`).
+
+Il reste :
+
+1. **L14 — veille et deep sleep.** La part hors ligne est la machine à états : quand
+   s'endormir, pour combien de temps, ce qui réveille. À écrire dans `src/core/`, sur le
+   modèle de `core/pause_timer` — une horloge, un état, aucune dépendance Arduino. La
+   consommation et le réveil par GPIO4 exigeront le boîtier.
+2. **L15 — finition.** Photo du panneau au mur (`docs/images/device.jpg`, référencée par un
+   TODO dans le README), capture des entités Home Assistant, schéma d'architecture.
+
+Deux points à ne pas oublier :
+
+- `src/config.h`, `mqtt-user.env`, `*.env` et `test/fixtures/raw/` sont git-ignorés et le
+  dépôt est **public** — vérifier `git status --short` avant chaque commit.
+- Reste ouverte la question de réécrire l'historique pour purger `mqtt-user.env` des anciens
+  commits. Le mot de passe ayant été changé, c'est du confort, plus de la sécurité. Aucune
+  autorisation donnée pour un `git filter-repo` + `push --force`.
+
+---
+
 **Reprise du développement sans le matériel** : voir [docs/development.md](../docs/development.md)
 — il indique, livraison par livraison, ce qui se teste hors ligne (`pio test -e native`, sur
 les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.

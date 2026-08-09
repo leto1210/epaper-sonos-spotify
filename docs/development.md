@@ -70,9 +70,14 @@ fait hors ligne et ce qui exige le matériel.
 | L8 pochettes | **tout** : décodage et tramage, avec un JPEG de test | rendu couleur |
 | L9 capteurs | conversion tension → pourcentage | lecture ADC et I²C |
 | L10 boutons | anti-rebond, coalescence | appuis réels |
-| L11-L12 MQTT, Home Assistant | construction des payloads de découverte | broker |
-| L13 météo | **tout** : parseur + template Jinja | broker |
+| L11-L12 MQTT, Home Assistant | construction des payloads, analyse des commandes reçues | broker |
+| L13 météo | **tout** : parseur, mise en forme, template Jinja | broker |
 | L14 veille, deep sleep | logique de transition | consommation, réveil |
+
+Le délai de grâce sur pause (`core/pause_timer`) illustre la règle : il ne voit qu'une horloge
+et un état, donc ses six tests couvrent la reprise, le changement de pièce et le débordement
+de `millis()` sans qu'aucune enceinte soit branchée. Seule la bascule d'écran demandait le
+matériel.
 
 Quand une livraison est « **tout** » hors ligne, elle doit l'être vraiment : si son test a
 besoin du matériel, c'est que la logique est au mauvais endroit.
