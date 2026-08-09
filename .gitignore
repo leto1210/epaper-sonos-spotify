@@ -18,3 +18,7 @@ test/fixtures/raw/
 
 # Généré par le builder pioarduino
 src/idf_component.yml
+
+# Identifiants MQTT fournis hors dépôt. Voir docs/build.md.
+mqtt-user.env
+*.env
