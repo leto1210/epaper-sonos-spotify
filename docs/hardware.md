@@ -47,6 +47,23 @@ ce fait : on ne redessine que lorsque le contenu change réellement, jamais pour
 que ce soit. Les appuis sur les boutons sont donc confirmés par le **buzzer**, seul retour
 immédiat disponible.
 
+## Typographie : n'utiliser que les FreeFonts
+
+Les polices numérotées de `Seeed_GFX` ne sont pas des polices générales. La 6 est une police
+d'horloge qui ne contient que `1234567890:-.apm`, la 7 seulement des chiffres. **Les
+caractères absents sont supprimés silencieusement** : « ePaper Spotify » s'y affiche « ap p ».
+
+Le firmware n'emploie donc que les FreeFonts d'Adafruit GFX :
+
+```cpp
+epaper.setFreeFont(&FreeSansBold24pt7b);
+epaper.drawString("Titre du morceau", x, y);  // sans argument de police
+```
+
+`setFreeFont()` bascule déjà la police courante ; passer en plus une constante `GFXFF` — vue
+dans les exemples de la bibliothèque — ne compile pas, elle appartient à un en-tête d'exemple
+et non à `Seeed_GFX`.
+
 ## Sources
 
 - [Wiki Seeed — Getting started reTerminal E1002](https://wiki.seeedstudio.com/getting_started_with_reterminal_e1002/)
