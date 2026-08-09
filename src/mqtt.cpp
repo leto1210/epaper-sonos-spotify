@@ -25,6 +25,26 @@ bool g_enabled = false;
 bool g_discovery_sent = false;
 uint32_t g_last_attempt_ms = 0;
 
+weather::Report g_weather;
+
+// Le payload arrive en octets bruts, sans terminateur : PubSubClient réutilise
+// son tampon d'un message à l'autre. On copie avant d'analyser.
+void onMessage(char* topic, uint8_t* payload, unsigned int length) {
+  if (ha::weatherTopic(g_device) != topic) return;
+
+  const std::string json(reinterpret_cast<const char*>(payload), length);
+  const weather::Report report = weather::parse(json);
+  if (!report.valid) {
+    Serial.printf("[mqtt] meteo illisible (%u octets)\n", length);
+    return;
+  }
+
+  g_weather = report;
+  Serial.printf("[mqtt] meteo recue : %s, %.1f C, %u creneaux\n",
+                weather::conditionLabel(report.condition), report.temperature_c,
+                static_cast<unsigned>(report.hourly.size()));
+}
+
 void publishDiscovery() {
   int published = 0;
   for (const ha::Entity& entity : ha::entities()) {
@@ -54,6 +74,10 @@ bool connect() {
   Serial.printf("[mqtt] connecte a %s\n", MQTT_HOST);
   g_client.publish(status.c_str(), "online", true);
 
+  // À réabonner à chaque connexion : la session n'est pas persistante. Le
+  // sujet étant retenu, la météo courante arrive dans la foulée.
+  g_client.subscribe(ha::weatherTopic(g_device).c_str());
+
   if (!g_discovery_sent) {
     publishDiscovery();
     g_discovery_sent = true;
@@ -79,6 +103,7 @@ void begin() {
   g_enabled = true;
   g_client.setServer(MQTT_HOST, MQTT_PORT);
   g_client.setBufferSize(kBufferSize);
+  g_client.setCallback(onMessage);
 }
 
 void loop() {
@@ -108,5 +133,7 @@ void publishState(const ha::State& state) {
 void publishTrack(const ha::Track& track) {
   publish(ha::trackTopic(g_device), ha::trackPayload(track));
 }
+
+const weather::Report& weatherReport() { return g_weather; }
 
 }  // namespace mqtt

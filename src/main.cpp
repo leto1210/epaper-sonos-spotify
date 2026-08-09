@@ -10,6 +10,7 @@
 #include "config.h"
 #include "core/version.h"
 #include "core/layout_plan.h"
+#include "core/weather_view.h"
 #include "core/zone_picker.h"
 #include "display.h"
 #include "mqtt.h"
@@ -116,6 +117,33 @@ void sendTransport(buttons::Action action) {
   }
 }
 
+// Écran de repli quand rien ne joue. Même politique que pour le morceau : une
+// empreinte, et pas de rafraîchissement si rien n'a bougé.
+void renderWeather() {
+  const sensors::Reading measures = sensors::read();
+  const weather::View view = weather::plan(mqtt::weatherReport(), time(nullptr),
+                                           measures.has_climate, measures.temperature_c,
+                                           measures.humidity_pct);
+
+  // L'empreinte ne retient que ce qui se voit : deux relevés successifs à
+  // 32,58 et 32,62 °C ne valent pas 37 s de rafraîchissement.
+  std::string fingerprint = "meteo|" + view.condition_label + "|" + view.temperature;
+  for (const weather::Column& column : view.columns) {
+    fingerprint += "|" + column.hour + column.temperature;
+  }
+  if (fingerprint == g_shown_fingerprint) return;
+
+  display::Status status;
+  status.indoor_temperature_c = measures.temperature_c;
+  status.indoor_humidity_pct = measures.has_climate ? measures.humidity_pct : 0;
+  status.battery_pct = measures.battery_pct;
+
+  display::showWeather(view, status);
+  g_shown_fingerprint = fingerprint;
+  g_last_refresh_iso = nowIso8601();
+  publishMeasurements(measures);
+}
+
 void pollAndRender() {
   std::vector<sonos::ZoneStatus> zones;
   const uint32_t started = millis();
@@ -139,7 +167,8 @@ void pollAndRender() {
   const std::vector<sonos::Choice> ranked =
       sonos::rankZones(zones, kZonePriority, g_last_zone);
   if (ranked.empty()) {
-    Serial.println("[sonos] aucune zone a afficher");
+    Serial.println("[sonos] aucune zone a afficher, ecran meteo");
+    renderWeather();
     return;
   }
 
@@ -162,9 +191,10 @@ void pollAndRender() {
   }
 
   if (!choice.found) {
-    // Aucune zone ne sait quoi que ce soit : on conserve la dernière fiche
-    // affichée plutôt que d'effacer l'écran.
-    Serial.println("[sonos] aucune metadonnee nulle part, ecran inchange");
+    // Aucune zone ne sait quoi que ce soit : la télévision, une entrée ligne ou
+    // simplement le silence. L'écran passe à la météo.
+    Serial.println("[sonos] aucune metadonnee nulle part, ecran meteo");
+    renderWeather();
     return;
   }
   g_last_zone = choice.name;

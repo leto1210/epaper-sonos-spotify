@@ -7,6 +7,7 @@
 #include <string>
 
 #include "core/weather.h"
+#include "core/weather_view.h"
 
 namespace {
 
@@ -72,6 +73,70 @@ void test_condition_vocabulary() {
   TEST_ASSERT_EQUAL_STRING("--", weather::conditionLabel(weather::Condition::kUnknown));
 }
 
+// --- Mise en forme de l'écran -----------------------------------------------
+
+namespace {
+
+// Un instant contemporain de la fixture, donc un rapport frais.
+constexpr long kFixtureNow = 1786284627 + 600;
+
+weather::Report fixtureReport() { return weather::parse(fixture("weather.json")); }
+
+}  // namespace
+
+void test_view_formats_current_conditions() {
+  const weather::View view = weather::plan(fixtureReport(), kFixtureNow);
+
+  TEST_ASSERT_FALSE(view.stale);
+  TEST_ASSERT_EQUAL_STRING("Ensoleille", view.condition_label.c_str());
+  TEST_ASSERT_EQUAL_STRING("33 C", view.temperature.c_str());  // 32,6 arrondi
+  TEST_ASSERT_EQUAL_STRING("23 %   10 km/h   UV 5.6", view.details.c_str());
+}
+
+void test_view_caps_the_forecast_at_six_columns() {
+  weather::Report report = fixtureReport();
+  for (int i = 0; i < 4; ++i) report.hourly.push_back(report.hourly.front());
+
+  const weather::View view = weather::plan(report, kFixtureNow);
+  TEST_ASSERT_EQUAL_INT(weather::kMaxColumns, static_cast<int>(view.columns.size()));
+  TEST_ASSERT_EQUAL_STRING("16h", view.columns.front().hour.c_str());
+}
+
+// Une colonne « 0 mm » à chaque créneau d'une journée sèche n'apprend rien.
+void test_view_shows_rain_only_when_it_rains() {
+  const weather::View view = weather::plan(fixtureReport(), kFixtureNow);
+  TEST_ASSERT_TRUE(view.columns[0].precipitation.empty());
+  TEST_ASSERT_EQUAL_STRING("0.4 mm", view.columns[2].precipitation.c_str());
+}
+
+// Le sujet MQTT est retenu : sans cette garde, un broker resservirait la météo
+// d'avant-hier avec l'aplomb d'une mesure fraîche.
+void test_view_hides_figures_when_the_report_is_stale() {
+  const weather::View view = weather::plan(fixtureReport(), kFixtureNow + 3 * 3600);
+
+  TEST_ASSERT_TRUE(view.stale);
+  TEST_ASSERT_EQUAL_STRING("Meteo perimee", view.condition_label.c_str());
+  TEST_ASSERT_TRUE(view.temperature.empty());
+  TEST_ASSERT_TRUE(view.columns.empty());
+}
+
+void test_view_without_any_report_says_so() {
+  const weather::View view = weather::plan(weather::Report{}, kFixtureNow);
+  TEST_ASSERT_TRUE(view.stale);
+  TEST_ASSERT_EQUAL_STRING("Meteo indisponible", view.condition_label.c_str());
+}
+
+// L'intérieur reste affiché même quand la météo manque : il vient du SHT4x, pas
+// du réseau. Et sans capteur, la ligne disparaît au lieu d'annoncer 0 °C.
+void test_view_indoor_line_is_independent_of_the_forecast() {
+  const weather::View with_sensor =
+      weather::plan(weather::Report{}, kFixtureNow, true, 21.4f, 48);
+  TEST_ASSERT_EQUAL_STRING("Interieur 21.4 C   48 %", with_sensor.indoor.c_str());
+
+  const weather::View without_sensor = weather::plan(fixtureReport(), kFixtureNow);
+  TEST_ASSERT_TRUE(without_sensor.indoor.empty());
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_parses_current_conditions);
@@ -79,5 +144,11 @@ int main(int, char**) {
   RUN_TEST(test_detects_stale_report);
   RUN_TEST(test_rejects_malformed_payload);
   RUN_TEST(test_condition_vocabulary);
+  RUN_TEST(test_view_formats_current_conditions);
+  RUN_TEST(test_view_caps_the_forecast_at_six_columns);
+  RUN_TEST(test_view_shows_rain_only_when_it_rains);
+  RUN_TEST(test_view_hides_figures_when_the_report_is_stale);
+  RUN_TEST(test_view_without_any_report_says_so);
+  RUN_TEST(test_view_indoor_line_is_independent_of_the_forecast);
   return UNITY_END();
 }

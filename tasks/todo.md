@@ -34,12 +34,34 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
         dans HA, boîtier branché
 - [ ] **L12** — Bouton refresh et select de zone depuis HA
 - [~] **L13** — Météo : abonnement MQTT + parsing + automatisation HA
-      → contrat de données, automatisation HA et parseur faits (5 tests) ; il reste
-        l'abonnement MQTT côté firmware et la mise en page, qui dépendent de L11 et L6
+      → contrat, automatisation HA, parseur, abonnement et écran faits (11 tests) ;
+        reste à voir l'écran météo sur le panneau
 - [ ] **L14** — Écran de veille + deep sleep
 - [ ] **L15** — Finition doc : photos, captures HA, schéma
 
 ## Revue
+
+### L13 (partielle, sans matériel)
+L'écran météo prend la place du morceau quand plus aucune zone ne sait ce qu'elle joue —
+silence, télévision, entrée ligne. Auparavant l'écran restait figé sur la dernière fiche
+connue.
+
+Toutes les chaînes affichées sont construites dans `core/weather_view`, donc vérifiées par
+les tests ; `display` ne fait plus que les poser. Trois décisions qui s'y voient :
+
+- **Un rapport périmé masque ses chiffres** au lieu de les afficher discrètement. Le sujet
+  MQTT est retenu : sans cela, un broker resservirait la météo d'avant-hier avec l'aplomb
+  d'une mesure fraîche.
+- **La ligne intérieure survit à l'absence de météo** : elle vient du SHT4x, pas du réseau.
+- **La pluie ne s'affiche que s'il pleut.** Six colonnes « 0 mm » un jour d'été n'apprennent
+  rien et chargent l'écran.
+
+Faute de pictogrammes dans les FreeFonts, chaque créneau porte une pastille colorée — c'est
+le seul endroit du projet où les six encres servent à porter du sens plutôt qu'à reproduire
+une image.
+
+L'empreinte anti-redraw ne retient que ce qui se voit : deux relevés à 32,58 et 32,62 °C ne
+valent pas 37 s de rafraîchissement.
 
 ### L11 (partielle, sans matériel)
 Les payloads se construisent dans `core/ha_discovery`, donc se vérifient au caractère près

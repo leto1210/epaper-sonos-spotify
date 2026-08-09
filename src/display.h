@@ -7,6 +7,7 @@
 #include "albumart.h"
 #include "core/layout_plan.h"
 #include "core/sonos_parser.h"
+#include "core/weather_view.h"
 
 // Pilotage de l'ePaper. Toute écriture à l'écran passe par ici : c'est le seul
 // endroit qui déclenche un rafraîchissement, ce qui rend le comptage fiable.
@@ -36,6 +37,10 @@ void showBootScreen(const char* status);
 // d'après la longueur du titre.
 void showTrack(const sonos::TrackInfo& track, const Status& status,
                const albumart::Bitmap& art = {});
+
+// Écran de repli quand rien ne joue : météo reçue de Home Assistant par MQTT.
+// Le contenu est entièrement mis en forme par core/weather_view.
+void showWeather(const weather::View& view, const Status& status);
 
 uint32_t refreshCount();
 
