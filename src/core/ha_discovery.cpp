@@ -2,6 +2,8 @@
 
 #include <ArduinoJson.h>
 
+#include <cmath>
+
 namespace ha {
 namespace {
 
@@ -168,7 +170,9 @@ std::string statePayload(const State& state) {
   doc["chg"] = state.charging;
 
   if (state.has_climate) {
-    doc["temp"] = state.temperature_c;
+    // Le SHT4x renvoie 28,30587 °C. Le dixième de degré est déjà au-delà de sa
+    // précision réelle ; publier tout le reste ne fait qu'encombrer l'historique.
+    doc["temp"] = std::round(state.temperature_c * 10.0f) / 10.0f;
     doc["hum"] = state.humidity_pct;
   }
 

@@ -17,6 +17,13 @@ constexpr uint16_t kBufferSize = 1024;
 
 constexpr uint32_t kReconnectIntervalMs = 10000;
 
+// Un rafraîchissement de l'ePaper bloque 37 s, pendant lesquelles personne
+// n'entretient la session MQTT. Avec les 15 s de keepalive par défaut, le
+// broker déclarait le boîtier mort à chaque redessin : testament publié,
+// entités en `unavailable`, puis reconnexion — un clignotement visible dans
+// Home Assistant. Mesuré sur cible.
+constexpr uint16_t kKeepAliveS = 90;
+
 WiFiClient g_socket;
 PubSubClient g_client(g_socket);
 ha::Device g_device;
@@ -103,6 +110,7 @@ void begin() {
   g_enabled = true;
   g_client.setServer(MQTT_HOST, MQTT_PORT);
   g_client.setBufferSize(kBufferSize);
+  g_client.setKeepAlive(kKeepAliveS);
   g_client.setCallback(onMessage);
 }
 
