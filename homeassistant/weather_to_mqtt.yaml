@@ -1,0 +1,60 @@
+# Publie la météo vers le boîtier ePaper, par MQTT.
+#
+# À coller dans Paramètres > Automatisations > Modifier en YAML, ou dans
+# automations.yaml. Adaptez `weather.forecast_maison` à votre entité météo.
+#
+# Le boîtier ne fait qu'écouter : il n'a ni jeton d'API, ni accès à Home
+# Assistant. Le drapeau `retain` lui permet d'afficher la météo dès son
+# démarrage, sans attendre la publication suivante.
+#
+# Le format est volontairement compact : l'ESP32 lit ce JSON avec un tampon de
+# taille fixe, et un payload non fragmenté vaut mieux qu'une structure bavarde.
+
+alias: Météo vers ePaper Sonos
+description: Publie conditions et prévisions horaires sur MQTT pour le boîtier ePaper
+triggers:
+  - trigger: time_pattern
+    minutes: "/30"
+  - trigger: homeassistant
+    event: start
+conditions: []
+actions:
+  - action: weather.get_forecasts
+    target:
+      entity_id: weather.forecast_maison
+    data:
+      type: hourly
+    response_variable: prevision
+
+  - action: mqtt.publish
+    data:
+      topic: reterminal_sonos/weather
+      retain: true
+      payload: >-
+        {% set etat = states.weather.forecast_maison %}
+        {# Une échéance sur deux, six au total : douze heures de visibilité
+           sans surcharger le payload ni la largeur de l'écran. #}
+        {% set creneaux = prevision['weather.forecast_maison'].forecast[:12:2] %}
+        {% set ns = namespace(heures=[]) %}
+        {% for c in creneaux %}
+          {% set ns.heures = ns.heures + [{
+            "h": as_local(as_datetime(c.datetime)).strftime('%H'),
+            "c": c.condition,
+            "t": c.temperature | round(1),
+            "p": c.precipitation | default(0) | round(1)
+          }] %}
+        {% endfor %}
+        {{
+          {
+            "ts": now().timestamp() | int,
+            "now": {
+              "cond": etat.state,
+              "temp": etat.attributes.temperature | round(1),
+              "hum": etat.attributes.humidity | int,
+              "wind": etat.attributes.wind_speed | round(0) | int,
+              "uv": etat.attributes.uv_index | default(0) | round(1)
+            },
+            "hourly": ns.heures
+          } | to_json
+        }}
+mode: single

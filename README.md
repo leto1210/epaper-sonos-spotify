@@ -15,6 +15,8 @@ ligne : le boîtier interroge directement vos enceintes sur le réseau local.
 - Boutons physiques : morceau précédent / suivant / play-pause
 - Intégration Home Assistant via MQTT Discovery (batterie, température, humidité, morceau
   en cours, bouton de rafraîchissement, sélection de zone)
+- Écran météo quand rien ne joue : conditions du moment, prévisions horaires, et comparaison
+  avec la température intérieure mesurée par le boîtier
 - Fonctionne sur batterie : l'écran n'est redessiné que lorsque le morceau change
 
 ## Matériel
@@ -42,6 +44,7 @@ Détails de compilation, génération de `driver.h` et dépannage : [docs/build.
 
 ## Documentation
 
+- [docs/development.md](docs/development.md) — **travailler sur le projet sans le matériel**
 - [docs/hardware.md](docs/hardware.md) — brochage complet du reTerminal E1002
 - [docs/sonos-api.md](docs/sonos-api.md) — l'API UPnP locale de Sonos, avec des `curl`
   reproductibles

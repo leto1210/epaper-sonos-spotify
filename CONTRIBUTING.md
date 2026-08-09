@@ -9,6 +9,10 @@ pio run              # doit compiler
 
 La CI exécute exactement ces deux commandes.
 
+Le projet se développe **sans matériel** pour l'essentiel : voir
+[docs/development.md](docs/development.md), qui indique par livraison ce qui se teste hors
+ligne et ce qui exige réellement le boîtier.
+
 ## Organisation du code
 
 - `src/core/` — **logique pure, sans dépendance Arduino**. Parsing des réponses Sonos,

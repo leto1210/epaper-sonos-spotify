@@ -3,6 +3,10 @@
 Une livraison = un commit autonome et flashable. On ne passe pas à la suivante tant que le
 test de la précédente ne passe pas.
 
+**Reprise du développement sans le matériel** : voir [docs/development.md](../docs/development.md)
+— il indique, livraison par livraison, ce qui se teste hors ligne (`pio test -e native`, sur
+les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
+
 - [x] **L0** — Squelette PlatformIO + doc + CI
       → `pio test -e native` passe, `pio run` compile
 - [x] **L1** — Hello World ePaper
@@ -24,8 +28,9 @@ test de la précédente ne passe pas.
       → 4 appuis rapides ⇒ un seul refresh
 - [ ] **L11** — MQTT + Home Assistant Discovery
 - [ ] **L12** — Bouton refresh et select de zone depuis HA
-- [ ] **L13** — Météo : abonnement MQTT + parsing + automatisation HA
-      → couper la musique ⇒ conditions actuelles, prévisions horaires, intérieur/extérieur
+- [~] **L13** — Météo : abonnement MQTT + parsing + automatisation HA
+      → contrat de données, automatisation HA et parseur faits (5 tests) ; il reste
+        l'abonnement MQTT côté firmware et la mise en page, qui dépendent de L11 et L6
 - [ ] **L14** — Écran de veille + deep sleep
 - [ ] **L15** — Finition doc : photos, captures HA, schéma
 
