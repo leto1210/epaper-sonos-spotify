@@ -1,0 +1,15 @@
+# Carte Lovelace regroupant les entités du boîtier.
+#
+# À coller dans un tableau de bord Home Assistant, en mode « Modifier en YAML ».
+# Les entités apparaissent d'elles-mêmes via MQTT Discovery — voir
+# docs/home-assistant.md — à partir de la livraison L11.
+
+type: entities
+title: ePaper Sonos
+entities:
+  - sensor.epaper_sonos_morceau_en_cours
+  - sensor.epaper_sonos_temperature
+  - sensor.epaper_sonos_humidite
+  - sensor.epaper_sonos_batterie
+  - select.epaper_sonos_zone_suivie
+  - button.epaper_sonos_rafraichir

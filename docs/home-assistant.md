@@ -34,6 +34,11 @@ Aucun YAML à écrire côté Home Assistant : l'appareil apparaît tout seul.
 | Rafraîchir l'écran | `button` | déclenche un redraw immédiat |
 | Zone suivie | `select` | `auto` ou une pièce précise |
 
+## Tableau de bord
+
+[`homeassistant/lovelace_card.yaml`](../homeassistant/lovelace_card.yaml) regroupe les six
+entités en une carte, à coller dans un tableau de bord.
+
 ## Fréquence de publication
 
 À chaque changement de morceau, et au minimum toutes les 5 minutes. C'est volontairement
