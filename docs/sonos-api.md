@@ -57,16 +57,41 @@ Champs utiles : `TrackDuration`, `RelTime` (position), `TrackURI` et surtout
 État de lecture, avec `GetTransportInfo` sur le même endpoint : `PLAYING`,
 `PAUSED_PLAYBACK`, `STOPPED`, `TRANSITIONING`.
 
+## Spotify Connect : le cas qui surprend
+
+Quand la lecture est lancée depuis l'application Spotify (Spotify Connect), l'URI du morceau
+prend la forme `x-sonos-vli:RINCON_...:2,spotify:<session>` — *vli* pour « virtual line-in ».
+Sonos traite alors Spotify comme une entrée ligne.
+
+Conséquence vérifiée sur du matériel réel :
+
+| État de l'enceinte | `TrackMetaData` |
+|---|---|
+| `PLAYING` | DIDL-Lite complet : titre, artiste, album, pochette |
+| `PAUSED_PLAYBACK` / `STOPPED` | `NOT_IMPLEMENTED` |
+
+`GetMediaInfo` n'aide pas : il ne décrit que la source (`<dc:title>Spotify</dc:title>`,
+classe `audioItem.linein`). L'abonnement aux événements GENA ne fait pas mieux à l'arrêt.
+
+Ce n'est donc pas un blocage, mais cela impose une règle : **« l'enceinte joue » et « on
+connaît le morceau » sont deux choses distinctes**. Le firmware conserve la dernière fiche
+connue plutôt que d'effacer l'écran dès la mise en pause.
+
 ## Pochette
 
-`upnp:albumArtURI` est une URL **relative**, à préfixer par l'adresse du coordinateur :
+`upnp:albumArtURI` n'est pas toujours relatif : avec Spotify il s'agit d'une URL **absolue
+en HTTPS** vers le CDN (`https://i.scdn.co/image/...`), inexploitable directement depuis
+l'ESP32 — il faudrait TLS et un accès Internet.
+
+La solution est l'endpoint proxy de l'enceinte, qui sert la même image en **HTTP simple sur
+le LAN**, à partir de l'URI du morceau encodée pour-cent :
 
 ```
-http://SONOS_IP:1400/getaa?s=1&u=<url-encodée-du-morceau>
+http://SONOS_IP:1400/getaa?s=1&u=<TrackURI-encodée>
 ```
 
-L'enceinte agit en proxy : elle récupère la pochette chez Spotify et la sert en JPEG sur le
-LAN. C'est ce qui permet au boîtier de n'avoir aucun accès Internet.
+Mesuré sur une piste Spotify : JPEG 640×640, environ 200 Ko. C'est ce qui permet au boîtier
+de fonctionner sans aucun accès Internet.
 
 ## Contrôle de la lecture
 

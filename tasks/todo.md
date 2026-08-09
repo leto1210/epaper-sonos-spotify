@@ -5,12 +5,12 @@ test de la précédente ne passe pas.
 
 - [x] **L0** — Squelette PlatformIO + doc + CI
       → `pio test -e native` passe, `pio run` compile
-- [ ] **L1** — Hello World ePaper
-      → texte affiché, un seul refresh
+- [~] **L1** — Hello World ePaper
+      → compile ; **test visuel en attente : le boîtier n'est pas encore branché**
 - [ ] **L2** — Wi-Fi + NTP
       → IP et heure correctes en série, reconnexion après coupure
-- [ ] **L3** — Fixtures Sonos + parseur DIDL-Lite
-      → unitaire : métadonnées extraites de 3 fixtures (Spotify, radio, file vide)
+- [x] **L3** — Fixtures Sonos + parseur DIDL-Lite
+      → 8 tests unitaires au vert sur 5 captures réelles anonymisées
 - [ ] **L4** — SSDP + choix du coordinateur
       → zones listées en série, coordinateur identifié
 - [ ] **L5** — `GetPositionInfo` en direct
@@ -36,3 +36,21 @@ test de la précédente ne passe pas.
    le fork **pioarduino**, épinglé par URL ;
 2. `SPI.h`/`Wire.h` n'étaient pas résolus pour les bibliothèques tierces — ajout de
    `lib_ldf_mode = deep+` et des entrées `SPI`/`Wire` dans `lib_deps`.
+
+### L3
+Deux découvertes sur du matériel réel, toutes deux documentées dans `docs/sonos-api.md` :
+
+1. **Spotify Connect** (`x-sonos-vli:`) ne fournit les métadonnées que pendant la lecture
+   effective ; en pause elles valent `NOT_IMPLEMENTED`. Ni `GetMediaInfo` ni les événements
+   GENA n'y changent quoi que ce soit. D'où la distinction, dans `TrackInfo`, entre
+   « l'enceinte joue » et « on connaît le morceau » : l'écran conservera la dernière fiche
+   connue au lieu de se vider à la pause.
+2. La **pochette** est une URL HTTPS absolue vers le CDN Spotify, pas un chemin relatif.
+   Inexploitable depuis l'ESP32 ; on passe par `/getaa` sur l'enceinte, qui sert la même
+   image en HTTP simple sur le LAN (640×640, ~200 Ko).
+
+Le piège du coordinateur s'est présenté dès la première capture : l'enceinte interrogée était
+esclave et renvoyait `NOT_IMPLEMENTED`. Cette capture est conservée comme fixture.
+
+Un bug réel attrapé par les tests : la recherche de balise trouvait `upnp:albumArtURI` quand
+on demandait `upnp:album`.
