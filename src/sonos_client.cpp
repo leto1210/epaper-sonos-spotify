@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include <WiFiClient.h>
 
+#include <algorithm>
+
 namespace sonos_client {
 namespace {
 
@@ -68,8 +70,13 @@ std::string soap(const std::string& ip, const char* path, const char* service,
       if (line.length() <= 1) headers_done = true;
       continue;
     }
+    // Ne lire que ce qui est réellement disponible : readBytes() attend de
+    // remplir tout le tampon et bloque jusqu'au délai d'attente sur le dernier
+    // fragment, ce qui ajoutait plusieurs secondes par requête et noyait la
+    // console d'avertissements.
     char buffer[512];
-    const int read = client.readBytes(buffer, sizeof(buffer));
+    const size_t wanted = std::min(static_cast<size_t>(client.available()), sizeof(buffer));
+    const int read = client.read(reinterpret_cast<uint8_t*>(buffer), wanted);
     if (read > 0) response.append(buffer, read);
   }
   client.stop();

@@ -81,15 +81,25 @@ void drawFooter(const Status& status, int duration_s) {
   epaper.setTextSize(1);
   epaper.setTextColor(TFT_BLACK);
 
-  const std::string left =
-      std::string(status.playing ? "> " : "|| ") + status.zone;
-  epaper.drawString(left.c_str(), kMargin, kFooterY + 14);
+  // Les trois blocs sont posés avec le même repère vertical. Les variantes
+  // drawCentreString / drawRightString gèrent leur origine autrement que
+  // drawString : les mélanger décalait les lignes de base les unes par rapport
+  // aux autres, et le texte chevauchait le trait de séparation.
+  const int16_t baseline = kFooterY + 16;
 
-  epaper.setTextColor(TFT_BLACK);
-  char middle[48];
-  snprintf(middle, sizeof(middle), "%.1f C  %d%%", status.indoor_temperature_c,
-           status.indoor_humidity_pct);
-  epaper.drawCentreString(middle, kWidth / 2, kFooterY + 14, 1);
+  epaper.setTextDatum(TL_DATUM);
+  const std::string left = std::string(status.playing ? "> " : "|| ") + status.zone;
+  epaper.drawString(left.c_str(), kMargin, baseline);
+
+  // Rien plutôt qu'un zéro inventé : les capteurs arrivent à la livraison 9, et
+  // un « 0.0 C » se lit comme une mesure, pas comme une absence de mesure.
+  if (status.indoor_humidity_pct > 0) {
+    char middle[48];
+    snprintf(middle, sizeof(middle), "%.1f C   %d%%", status.indoor_temperature_c,
+             status.indoor_humidity_pct);
+    epaper.setTextDatum(TC_DATUM);
+    epaper.drawString(middle, kWidth / 2, baseline);
+  }
 
   // La durée seule, sans barre de progression : celle-ci serait figée à
   // l'instant du rendu et n'avancerait plus pendant tout le morceau.
@@ -97,7 +107,10 @@ void drawFooter(const Status& status, int duration_s) {
   if (status.battery_pct >= 0) {
     right += "   " + std::to_string(status.battery_pct) + "%";
   }
-  epaper.drawRightString(right.c_str(), kWidth - kMargin, kFooterY + 14, 1);
+  epaper.setTextDatum(TR_DATUM);
+  epaper.drawString(right.c_str(), kWidth - kMargin, baseline);
+
+  epaper.setTextDatum(TL_DATUM);
 }
 
 }  // namespace
@@ -142,9 +155,23 @@ void showTrack(const sonos::TrackInfo& track, const Status& status) {
 
   epaper.fillScreen(TFT_WHITE);
   epaper.setTextSize(1);
+  epaper.setTextDatum(TL_DATUM);
 
+  // Hauteurs des blocs sous le titre, mesurées sur le rendu réel.
+  constexpr int16_t kArtistGap = 18;
+  constexpr int16_t kArtistHeight = 52;
+  constexpr int16_t kAlbumHeight = 34;
+
+  const int16_t block_height =
+      static_cast<int16_t>(plan.title_lines.size()) * titleLineHeight(plan.title_style) +
+      kArtistGap + kArtistHeight + kAlbumHeight;
+
+  // Bloc centré verticalement dans l'espace disponible au-dessus du bandeau.
+  // Aligné en haut, un titre d'une ou deux lignes laissait un tiers d'écran
+  // vide sous l'album.
   int16_t text_x = kMargin;
-  int16_t text_y = kMargin + 30;
+  int16_t text_y = (kFooterY - block_height) / 2;
+  if (text_y < kMargin + 20) text_y = kMargin + 20;
 
   if (plan.variant == layout::Variant::kTypography) {
     drawArtPlaceholder(kWidth - kMargin - plan.art_size_px, kMargin, plan.art_size_px);
@@ -160,13 +187,13 @@ void showTrack(const sonos::TrackInfo& track, const Status& status) {
     text_y += titleLineHeight(plan.title_style);
   }
 
-  text_y += 18;
+  text_y += kArtistGap;
   epaper.setTextSize(1);
   epaper.setTextColor(TFT_BLUE);
   epaper.setFreeFont(&FreeSansBold24pt7b);
   epaper.drawString(plan.artist.c_str(), text_x, text_y);
 
-  text_y += 52;
+  text_y += kArtistHeight;
   epaper.setTextColor(TFT_BLACK);
   epaper.setFreeFont(&FreeSans18pt7b);
   epaper.drawString(plan.album.c_str(), text_x, text_y);
