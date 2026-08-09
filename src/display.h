@@ -4,6 +4,8 @@
 
 #include <string>
 
+#include "albumart.h"
+#include "core/layout_plan.h"
 #include "core/sonos_parser.h"
 
 // Pilotage de l'ePaper. Toute écriture à l'écran passe par ici : c'est le seul
@@ -23,11 +25,17 @@ struct Status {
 
 void begin();
 
+// Largeur d'un texte dans le style donné, telle que l'écran la rendra. Exposée
+// parce que la taille de la pochette dépend de la disposition, elle-même
+// choisie d'après la place que prend le titre.
+int measureText(const std::string& text, layout::TitleStyle style);
+
 void showBootScreen(const char* status);
 
 // Écran du morceau en cours. La disposition est choisie par core/layout_plan
 // d'après la longueur du titre.
-void showTrack(const sonos::TrackInfo& track, const Status& status);
+void showTrack(const sonos::TrackInfo& track, const Status& status,
+               const albumart::Bitmap& art = {});
 
 uint32_t refreshCount();
 

@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 
+#include "core/dither.h"
 #include "core/layout_plan.h"
 #include "core/version.h"
 
@@ -52,10 +53,14 @@ int titleLineHeight(layout::TitleStyle style) {
 
 // La mesure passe par la même bascule que le rendu : le texte planifié et le
 // texte dessiné ne peuvent donc pas diverger.
-int measure(const std::string& text, layout::TitleStyle style) {
+}  // namespace
+
+int measureText(const std::string& text, layout::TitleStyle style) {
   applyTitleStyle(style);
   return epaper.textWidth(text.c_str());
 }
+
+namespace {
 
 void commit() {
   const uint32_t started = millis();
@@ -65,9 +70,32 @@ void commit() {
                 static_cast<unsigned long>(g_refresh_count), millis() - started);
 }
 
-// Emplacement réservé tant que le décodage des pochettes n'est pas écrit
-// (livraison 8). Un cadre vide vaut mieux qu'un aplat : on voit tout de suite
-// que la place est prévue et que l'image manque.
+uint16_t inkToColor(dither::Ink ink) {
+  switch (ink) {
+    case dither::Ink::kBlack: return TFT_BLACK;
+    case dither::Ink::kWhite: return TFT_WHITE;
+    case dither::Ink::kRed: return TFT_RED;
+    case dither::Ink::kGreen: return TFT_GREEN;
+    case dither::Ink::kBlue: return TFT_BLUE;
+    case dither::Ink::kYellow: return TFT_YELLOW;
+  }
+  return TFT_WHITE;
+}
+
+void drawArt(const albumart::Bitmap& art, int16_t x, int16_t y, int16_t size) {
+  // Le tramage a été calculé pour cette taille exacte : on pose les pixels tels
+  // quels. Redimensionner ici détruirait la trame.
+  (void)size;
+  for (int row = 0; row < art.size; ++row) {
+    for (int col = 0; col < art.size; ++col) {
+      epaper.drawPixel(x + col, y + row, inkToColor(art.pixels[row * art.size + col]));
+    }
+  }
+}
+
+// Repli quand la pochette manque : entrée TV, radio sans image, téléchargement
+// échoué. Un cadre barré vaut mieux qu'un aplat — on voit que la place est
+// prévue et que l'image manque, plutôt qu'un trou inexpliqué.
 void drawArtPlaceholder(int16_t x, int16_t y, int16_t size) {
   epaper.drawRect(x, y, size, size, TFT_BLACK);
   epaper.drawLine(x, y, x + size, y + size, TFT_BLACK);
@@ -145,9 +173,10 @@ void showBootScreen(const char* status) {
   commit();
 }
 
-void showTrack(const sonos::TrackInfo& track, const Status& status) {
+void showTrack(const sonos::TrackInfo& track, const Status& status,
+               const albumart::Bitmap& art) {
   const layout::TrackPlan plan =
-      layout::planTrack(track.title, track.artist, track.album, measure);
+      layout::planTrack(track.title, track.artist, track.album, measureText);
 
   if (plan.truncated) {
     Serial.printf("[ecran] titre tronque : %s\n", track.title.c_str());
@@ -173,11 +202,17 @@ void showTrack(const sonos::TrackInfo& track, const Status& status) {
   int16_t text_y = (kFooterY - block_height) / 2;
   if (text_y < kMargin + 20) text_y = kMargin + 20;
 
-  if (plan.variant == layout::Variant::kTypography) {
-    drawArtPlaceholder(kWidth - kMargin - plan.art_size_px, kMargin, plan.art_size_px);
-  } else {
-    drawArtPlaceholder(kMargin, kMargin, plan.art_size_px);
+  const int16_t art_x = plan.variant == layout::Variant::kTypography
+                            ? kWidth - kMargin - plan.art_size_px
+                            : kMargin;
+  if (plan.variant == layout::Variant::kArtwork) {
     text_x = kMargin + plan.art_size_px + 30;
+  }
+
+  if (art.valid() && art.size == plan.art_size_px) {
+    drawArt(art, art_x, kMargin, plan.art_size_px);
+  } else {
+    drawArtPlaceholder(art_x, kMargin, plan.art_size_px);
   }
 
   epaper.setTextColor(TFT_BLACK);

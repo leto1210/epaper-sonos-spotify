@@ -124,6 +124,7 @@ TrackInfo parsePositionInfo(const std::string& soap) {
   track.artist = tagValue(metadata, "dc:creator");
   track.album = tagValue(metadata, "upnp:album");
   track.art_uri = tagValue(metadata, "upnp:albumArtURI");
+  track.res_uri = tagValue(metadata, "res");
   track.has_metadata = !track.title.empty();
 
   return track;
@@ -207,12 +208,17 @@ SourceKind sourceKind(const std::string& track_uri) {
 }
 
 std::string albumArtUrl(const std::string& coordinator_ip, const TrackInfo& track) {
-  if (track.track_uri.empty()) return {};
+  // L'enceinte indexe la pochette par l'URI de la ressource, pas par le
+  // TrackURI. En Spotify Connect les deux diffèrent — le TrackURI est un
+  // identifiant de session `x-sonos-vli:` — et interroger /getaa avec le
+  // mauvais renvoie 404.
+  const std::string& key = track.res_uri.empty() ? track.track_uri : track.res_uri;
+  if (key.empty()) return {};
 
-  // Encodage pour-cent de l'URI du morceau : elle contient `:` et `&`.
+  // Encodage pour-cent : l'URI contient `:` et `&`.
   std::string encoded;
-  encoded.reserve(track.track_uri.size() * 3);
-  for (const unsigned char c : track.track_uri) {
+  encoded.reserve(key.size() * 3);
+  for (const unsigned char c : key) {
     const bool unreserved = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
                             (c >= '0' && c <= '9') || c == '-' || c == '_' ||
                             c == '.' || c == '~';

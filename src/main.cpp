@@ -5,8 +5,10 @@
 
 #include <vector>
 
+#include "albumart.h"
 #include "config.h"
 #include "core/version.h"
+#include "core/layout_plan.h"
 #include "core/zone_picker.h"
 #include "display.h"
 #include "sonos_client.h"
@@ -100,6 +102,18 @@ void pollAndRender() {
     return;
   }
 
+  // La pochette n'est chargée qu'une fois le redessin décidé : c'est
+  // 200 Ko de réseau et une seconde de décodage, inutiles si l'écran ne
+  // change pas.
+  const int art_size = layout::planTrack(track.title, track.artist, track.album,
+                                         display::measureText)
+                           .art_size_px;
+  const albumart::Bitmap art =
+      albumart::load(sonos::albumArtUrl(choice.ip, track), art_size);
+  if (!art.valid()) {
+    Serial.println("[pochette] indisponible, emplacement de repli");
+  }
+
   display::Status status;
   status.zone = choice.name;
   status.playing = choice.playing;
@@ -107,7 +121,7 @@ void pollAndRender() {
   status.indoor_temperature_c = 0.0f;
   status.indoor_humidity_pct = 0;
 
-  display::showTrack(track, status);
+  display::showTrack(track, status, art);
   g_shown_fingerprint = fingerprint;
 }
 

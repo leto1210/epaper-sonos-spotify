@@ -22,7 +22,8 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
 - [x] **L6** — Layout texte sur ePaper (maquette C, repli A)
 - [x] **L7** — Anti-redraw + compteur de refresh
       → validé sur cible : 1 rafraîchissement puis 4 sondages sans redraw
-- [ ] **L8** — Pochette : HTTP + JPEGDEC + tramage
+- [x] **L8** — Pochette : HTTP + JPEGDEC + tramage
+      → 640x640 téléchargée, décodée et tramée en 1,0 s ; 8 tests sur le tramage
 - [ ] **L9** — Capteurs SHT4x + batterie
 - [ ] **L10** — Boutons + buzzer (Next / Previous / Play-Pause)
       → 4 appuis rapides ⇒ un seul refresh
@@ -99,3 +100,21 @@ le code.
 
 Second écart entre configuration et réalité : les zones s'appellent « Sonos Séjour » et non
 « Séjour ». Le firmware liste les noms réels au démarrage, et `config.example.h` le signale.
+
+### L8
+Trois défauts successifs, aucun visible autrement qu'en exécutant sur la cible :
+
+1. **404 sur `/getaa`.** L'enceinte indexe la pochette par l'URI de la ressource (`<res>` du
+   DIDL), pas par le `TrackURI`. En Spotify Connect les deux diffèrent — le second est un
+   identifiant de session `x-sonos-vli:`. Mon test manuel avait réussi parce que j'y avais
+   collé la bonne URI sans réaliser qu'elle venait d'un autre champ.
+2. **Redémarrage en boucle.** L'objet `JPEGDEC`, déclaré sur la pile, embarque ses tables de
+   Huffman et ses tampons de blocs : plusieurs dizaines de kilo-octets, contre 8 Ko pour la
+   tâche `loop` d'Arduino. Le canari de pile a fait son travail. Alloué sur le tas, plutôt
+   qu'en agrandissant la pile — la cause valait mieux que le symptôme.
+3. **JPEG illisible.** L'enceinte sert l'image en `Transfer-Encoding: chunked`. Recopier le
+   flux tel quel insérait les tailles de blocs au milieu de l'image. `curl` masquait
+   complètement le problème en décodant les blocs pour moi.
+
+Résultat mesuré : 74 Ko téléchargés, décodage à demi-résolution, réduction et tramage en
+**1,0 s** au total.

@@ -53,13 +53,8 @@ Ink nearestInk(int r, int g, int b) {
   return static_cast<Ink>(best);
 }
 
-std::vector<Ink> floydSteinberg(const std::vector<Rgb>& pixels, int width, int height) {
-  std::vector<Ink> out;
-  if (width <= 0 || height <= 0 ||
-      pixels.size() < static_cast<size_t>(width) * height) {
-    return out;
-  }
-  out.resize(static_cast<size_t>(width) * height);
+bool floydSteinberg(const Rgb* pixels, int width, int height, Ink* out) {
+  if (pixels == nullptr || out == nullptr || width <= 0 || height <= 0) return false;
 
   // Deux lignes d'erreur seulement : la ligne courante et la suivante.
   std::vector<float> current(static_cast<size_t>(width) * 3, 0.0f);
@@ -102,17 +97,26 @@ std::vector<Ink> floydSteinberg(const std::vector<Rgb>& pixels, int width, int h
     std::fill(next.begin(), next.end(), 0.0f);
   }
 
+  return true;
+}
+
+std::vector<Ink> floydSteinberg(const std::vector<Rgb>& pixels, int width, int height) {
+  std::vector<Ink> out;
+  if (width <= 0 || height <= 0 ||
+      pixels.size() < static_cast<size_t>(width) * height) {
+    return out;
+  }
+  out.resize(static_cast<size_t>(width) * height);
+  floydSteinberg(pixels.data(), width, height, out.data());
   return out;
 }
 
-std::vector<Rgb> downscale(const std::vector<Rgb>& pixels, int src_width, int src_height,
-                           int dst_width, int dst_height) {
-  std::vector<Rgb> out;
-  if (src_width <= 0 || src_height <= 0 || dst_width <= 0 || dst_height <= 0 ||
-      pixels.size() < static_cast<size_t>(src_width) * src_height) {
-    return out;
+bool downscale(const Rgb* src, int src_width, int src_height, Rgb* dst, int dst_width,
+               int dst_height) {
+  if (src == nullptr || dst == nullptr || src_width <= 0 || src_height <= 0 ||
+      dst_width <= 0 || dst_height <= 0) {
+    return false;
   }
-  out.resize(static_cast<size_t>(dst_width) * dst_height);
 
   for (int y = 0; y < dst_height; ++y) {
     const int y0 = y * src_height / dst_height;
@@ -125,7 +129,7 @@ std::vector<Rgb> downscale(const std::vector<Rgb>& pixels, int src_width, int sr
       unsigned long r = 0, g = 0, b = 0, count = 0;
       for (int sy = y0; sy < y1 && sy < src_height; ++sy) {
         for (int sx = x0; sx < x1 && sx < src_width; ++sx) {
-          const Rgb& p = pixels[static_cast<size_t>(sy) * src_width + sx];
+          const Rgb& p = src[static_cast<size_t>(sy) * src_width + sx];
           r += p.r;
           g += p.g;
           b += p.b;
@@ -133,7 +137,7 @@ std::vector<Rgb> downscale(const std::vector<Rgb>& pixels, int src_width, int sr
         }
       }
       if (count == 0) count = 1;
-      out[static_cast<size_t>(y) * dst_width + x] = {
+      dst[static_cast<size_t>(y) * dst_width + x] = {
           static_cast<uint8_t>(r / count),
           static_cast<uint8_t>(g / count),
           static_cast<uint8_t>(b / count),
@@ -141,6 +145,18 @@ std::vector<Rgb> downscale(const std::vector<Rgb>& pixels, int src_width, int sr
     }
   }
 
+  return true;
+}
+
+std::vector<Rgb> downscale(const std::vector<Rgb>& pixels, int src_width, int src_height,
+                           int dst_width, int dst_height) {
+  std::vector<Rgb> out;
+  if (src_width <= 0 || src_height <= 0 || dst_width <= 0 || dst_height <= 0 ||
+      pixels.size() < static_cast<size_t>(src_width) * src_height) {
+    return out;
+  }
+  out.resize(static_cast<size_t>(dst_width) * dst_height);
+  downscale(pixels.data(), src_width, src_height, out.data(), dst_width, dst_height);
   return out;
 }
 

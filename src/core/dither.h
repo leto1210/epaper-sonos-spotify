@@ -30,10 +30,14 @@ const Rgb& inkColor(Ink ink);
 
 // Tramage de Floyd-Steinberg vers les six encres.
 //
-// `pixels` est en RGB888, `width * height` pixels. Le résultat contient un
-// indice de palette par pixel. La diffusion d'erreur travaille sur deux lignes
-// de flottants seulement : sur ESP32-S3, une pochette de 640x640 en RGB888
-// occupe déjà 1,2 Mo de PSRAM, inutile d'en ajouter autant.
+// `pixels` est en RGB888, `width * height` pixels, `out` reçoit un indice de
+// palette par pixel. La diffusion d'erreur travaille sur deux lignes de
+// flottants seulement : sur ESP32-S3, une pochette de 640x640 en RGB888 occupe
+// déjà 1,2 Mo de PSRAM, inutile d'en ajouter autant.
+//
+// Les surcharges à pointeurs existent parce que sur la cible les tampons
+// d'image sont alloués en PSRAM, hors du tas où vivent les std::vector.
+bool floydSteinberg(const Rgb* pixels, int width, int height, Ink* out);
 std::vector<Ink> floydSteinberg(const std::vector<Rgb>& pixels, int width, int height);
 
 // Encre la plus proche d'une couleur donnée, sans diffusion d'erreur.
@@ -42,6 +46,8 @@ Ink nearestInk(int r, int g, int b);
 // Redimensionne par moyenne de blocs (box filter). Les pochettes arrivent en
 // 640x640 et l'emplacement fait 200 ou 360 px : un simple échantillonnage
 // produirait de l'aliasing que le tramage amplifierait ensuite.
+bool downscale(const Rgb* src, int src_width, int src_height, Rgb* dst, int dst_width,
+               int dst_height);
 std::vector<Rgb> downscale(const std::vector<Rgb>& pixels, int src_width, int src_height,
                            int dst_width, int dst_height);
 

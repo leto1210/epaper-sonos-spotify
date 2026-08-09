@@ -22,7 +22,11 @@ struct TrackInfo {
   std::string artist;
   std::string album;
   std::string art_uri;    // relatif à l'enceinte, ou absolu (CDN Spotify)
-  std::string track_uri;  // sert à demander la pochette à l'enceinte
+  std::string track_uri;  // identité du morceau, sert d'empreinte anti-redraw
+
+  // URI de la ressource, extraite du DIDL. En Spotify Connect elle diffère du
+  // TrackURI, et c'est la SEULE que l'enceinte accepte pour servir la pochette.
+  std::string res_uri;
   int duration_s = 0;
   int position_s = 0;
 

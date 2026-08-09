@@ -46,10 +46,17 @@ void test_album_art_goes_through_the_speaker() {
   TEST_ASSERT_EQUAL_STRING("https://i.scdn.co/image/ab67616d0000b273ac9a652335cf34de9a65292a",
                            track.art_uri.c_str());
 
+  // La pochette doit être demandée avec l'URI de la ressource, pas le
+  // TrackURI : en Spotify Connect ce dernier est un identifiant de session
+  // `x-sonos-vli:`, et l'enceinte répond 404. Constaté sur le matériel.
+  TEST_ASSERT_TRUE(track.res_uri.rfind("x-sonos-spotify:", 0) == 0);
+  TEST_ASSERT_TRUE(track.track_uri.rfind("x-sonos-vli:", 0) == 0);
+
   const std::string url = sonos::albumArtUrl("192.0.2.10", track);
   TEST_ASSERT_TRUE(url.rfind("http://192.0.2.10:1400/getaa?s=1&u=", 0) == 0);
   TEST_ASSERT_TRUE(url.find("://i.scdn.co") == std::string::npos);
-  TEST_ASSERT_TRUE(url.find("%3A") != std::string::npos);  // ':' encodé
+  TEST_ASSERT_TRUE(url.find("x-sonos-spotify%3A") != std::string::npos);
+  TEST_ASSERT_TRUE(url.find("vli") == std::string::npos);
 }
 
 // --- Le piège du groupe -----------------------------------------------------
