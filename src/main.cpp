@@ -10,6 +10,7 @@
 #include "config.h"
 #include "core/version.h"
 #include "core/layout_plan.h"
+#include "core/pause_timer.h"
 #include "core/weather_view.h"
 #include "core/zone_picker.h"
 #include "display.h"
@@ -47,6 +48,8 @@ std::string g_last_ip;
 // nominal, et retrouver une pièce figée après une coupure de courant serait
 // plus déroutant qu'utile.
 std::string g_forced_zone = ha::kAutoZone;
+
+idle::PauseTimer g_pause_timer;
 
 // Horodatage du dernier rafraîchissement, au format attendu par Home Assistant
 // (`device_class: timestamp`). Vide tant que l'heure n'a pas été synchronisée :
@@ -243,6 +246,7 @@ void pollAndRender() {
   Serial.printf("[sonos] zone retenue : %s (%s), %s\n", choice.name.c_str(),
                 choice.ip.c_str(), choice.playing ? "en lecture" : "en pause");
 
+
   Serial.printf("[sonos] %s - %s [%s] %d/%d s\n", track.artist.c_str(),
                 track.title.c_str(), track.album.c_str(), track.position_s,
                 track.duration_s);
@@ -258,6 +262,15 @@ void pollAndRender() {
     published.art_url = track.art_uri;
     published.playing = choice.playing;
     mqtt::publishTrack(published);
+  }
+
+  // Une pause qui dure n'informe plus de rien : l'écran rend la place à la
+  // météo. Le test vient après la publication : Home Assistant continue de
+  // suivre le morceau, seul l'affichage change.
+  if (g_pause_timer.expired(millis(), choice.playing, choice.name)) {
+    Serial.println("[sonos] en pause depuis plus de 5 min, ecran meteo");
+    renderWeather();
+    return;
   }
 
   const std::string fingerprint =

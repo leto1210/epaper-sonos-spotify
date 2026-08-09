@@ -69,6 +69,22 @@ pièce.
 | Blanc droit (GPIO4) | Morceau suivant | — |
 | Vert (GPIO3) | Play / Pause | Redraw forcé |
 
+## Quand l'écran passe à la météo
+
+Trois cas, tous vérifiés sur le matériel :
+
+1. aucune zone ne joue ni n'est en pause ;
+2. plus aucune zone ne sait ce qu'elle joue — télévision, entrée ligne, silence ;
+3. la zone affichée est **en pause depuis plus de cinq minutes**.
+
+Le troisième cas est venu de l'usage : une fiche de morceau figée depuis une demi-heure
+n'informe plus de rien. Cinq minutes couvrent une pause de circonstance sans laisser
+l'affichage bloqué toute la nuit. Le compteur repart à zéro à la reprise, et à chaque
+changement de pièce — mettre en pause dans le séjour puis reprendre dans la cuisine, c'est
+une nouvelle écoute.
+
+Home Assistant, lui, continue de recevoir le morceau : seul l'affichage change.
+
 Le buzzer bippe **immédiatement** à l'appui : avec 25 s de latence d'affichage, c'est le
 seul retour utilisateur possible. Les appuis rapprochés sont coalescés — on ne lance le
 rendu qu'après 1,5 s sans nouvel appui, pour n'avoir qu'un seul refresh.
