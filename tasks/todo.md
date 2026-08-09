@@ -26,12 +26,12 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
       → 640x640 téléchargée, décodée et tramée en 1,0 s ; 8 tests sur le tramage
 - [x] **L9** — Capteurs SHT4x + batterie
       → 30,7 °C / 36 %HR / 4150 mV lus sur cible, 5 tests sur la conversion
-- [~] **L10** — Boutons + buzzer (Next / Previous / Play-Pause)
-      → 6 tests sur l'anti-rebond, l'appui long et la coalescence, dont la recette
-        « 4 appuis rapides ⇒ un seul refresh » ; reste à valider sur cible
-- [~] **L11** — MQTT + Home Assistant Discovery
-      → 9 entités publiées, 8 tests sur les payloads ; reste à voir l'appareil apparaître
-        dans HA, boîtier branché
+- [x] **L10** — Boutons + buzzer (Next / Previous / Play-Pause)
+      → validé sur cible : les quatre gestes reconnus, un seul rafraîchissement chacun,
+        et l'appui long n'entraîne pas de lecture/pause au relâchement ; 6 tests
+- [x] **L11** — MQTT + Home Assistant Discovery
+      → validé sur cible : 9/9 entités dans HA sous un seul appareil, mesures et morceau
+        à jour ; 8 tests
 - [ ] **L12** — Bouton refresh et select de zone depuis HA
 - [~] **L13** — Météo : abonnement MQTT + parsing + automatisation HA
       → contrat, automatisation HA, parseur, abonnement et écran faits (11 tests) ;
@@ -79,6 +79,31 @@ découverte en fait environ 700, et une publication trop grande **échoue silenc
 Le morceau est publié **avant** le test d'anti-redraw : Home Assistant suit la lecture au
 rythme du sondage, sans attendre les 37 s d'un rafraîchissement d'écran. Les mesures partent
 toutes les 5 minutes, même écran figé.
+
+### Recette matérielle de L10, L11 et L13
+
+Les quatre gestes ont été reconnus, chacun suivi d'un seul rafraîchissement :
+
+```
+[boutons] precedent sur Sonos Holiday : ok      -> #4
+[boutons] suivant sur Sonos Holiday : ok        -> #5
+[boutons] pause sur Sonos Holiday : ok          -> #6
+[boutons] redessin force
+```
+
+Le relâchement de l'appui long n'a produit aucune commande de transport : la garde tient sur
+le matériel comme dans les tests.
+
+**Un défaut trouvé uniquement sur cible.** La session MQTT tombait à chaque rafraîchissement :
+le redessin bloque 37 s, pendant lesquelles personne n'entretient la session, et le keepalive
+de `PubSubClient` est de 15 s. Le broker publiait donc le testament à chaque redessin — entités
+en `unavailable`, puis reconnexion — et la publication des mesures qui suit le redessin tombait
+dans ce trou. Home Assistant restait à 0 rafraîchissement, sans horodatage. Keepalive porté à
+90 s. Aucun test hors ligne n'aurait pu voir cela : il fallait la durée réelle du panneau.
+
+La météo arrive bien dès l'abonnement, le sujet étant retenu :
+`[mqtt] meteo recue : Nuit claire, 30.7 C, 6 creneaux`. L'écran météo lui-même reste à voir :
+une zone en pause conserve ses métadonnées, donc l'affichage reste sur le morceau.
 
 ### L10 (partielle, sans matériel)
 La logique tient dans `core/buttons` et ne voit que des niveaux et une horloge : anti-rebond,
