@@ -40,7 +40,8 @@ Correspondance état de charge : **4,15 V → 100 %**, **3,27 V → 0 %**.
 
 ## Contrainte structurante : le temps de rafraîchissement
 
-Un rafraîchissement complet prend **25 à 30 secondes**, et le Spectra 6 n'offre pas de
+Un rafraîchissement complet prend **25 à 30 secondes** d'après Seeed — **37 s mesurées** sur
+l'exemplaire de test, écran complet. Le Spectra 6 n'offre pas de
 rafraîchissement partiel exploitable en couleur. Tout le firmware est construit autour de
 ce fait : on ne redessine que lorsque le contenu change réellement, jamais pour animer quoi
 que ce soit. Les appuis sur les boutons sont donc confirmés par le **buzzer**, seul retour

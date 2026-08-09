@@ -5,8 +5,8 @@ test de la précédente ne passe pas.
 
 - [x] **L0** — Squelette PlatformIO + doc + CI
       → `pio test -e native` passe, `pio run` compile
-- [~] **L1** — Hello World ePaper
-      → compile ; **test visuel en attente : le boîtier n'est pas encore branché**
+- [x] **L1** — Hello World ePaper
+      → flashé sur cible : 800x480 initialisé, 1 seul rafraîchissement, 37,3 s
 - [ ] **L2** — Wi-Fi + NTP
       → IP et heure correctes en série, reconnexion après coupure
 - [x] **L3** — Fixtures Sonos + parseur DIDL-Lite
@@ -24,8 +24,10 @@ test de la précédente ne passe pas.
       → 4 appuis rapides ⇒ un seul refresh
 - [ ] **L11** — MQTT + Home Assistant Discovery
 - [ ] **L12** — Bouton refresh et select de zone depuis HA
-- [ ] **L13** — Écran de veille + deep sleep
-- [ ] **L14** — Finition doc : photos, captures HA, schéma
+- [ ] **L13** — Météo : abonnement MQTT + parsing + automatisation HA
+      → couper la musique ⇒ conditions actuelles, prévisions horaires, intérieur/extérieur
+- [ ] **L14** — Écran de veille + deep sleep
+- [ ] **L15** — Finition doc : photos, captures HA, schéma
 
 ## Revue
 
@@ -54,3 +56,12 @@ esclave et renvoyait `NOT_IMPLEMENTED`. Cette capture est conservée comme fixtu
 
 Un bug réel attrapé par les tests : la recherche de balise trouvait `upnp:albumArtURI` quand
 on demandait `upnp:album`.
+
+### L1 (validée sur cible)
+Le reTerminal E1002 expose son port série par un **pont CH340 sur UART0**, pas par l'USB
+natif de l'ESP32-S3 : avec `ARDUINO_USB_CDC_ON_BOOT=1`, `Serial` partait vers le CDC natif et
+la console restait muette alors que le ROM, lui, parlait bien. Corrigé en passant le drapeau
+à 0.
+
+Rafraîchissement mesuré : **37,3 s** pour un écran complet, au-dessus des 25-30 s annoncés
+par Seeed. La politique anti-redraw n'en est que plus justifiée.
