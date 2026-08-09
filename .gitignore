@@ -1,0 +1,20 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/
+.clang_complete
+.gcc-flags.json
+
+# Secrets — JAMAIS commité. Voir config.example.h
+src/config.h
+
+# Fixtures brutes : contiennent Household ID Sonos, UUID d'enceintes, IP privées,
+# identifiants de compte Spotify. Seules les versions anonymisées sont versionnées.
+test/fixtures/raw/
+
+# macOS
+.DS_Store
+
+# Généré par le builder pioarduino
+src/idf_component.yml
