@@ -192,6 +192,20 @@ std::vector<ZoneGroup> parseZoneGroups(const std::string& soap) {
   return groups;
 }
 
+SourceKind sourceKind(const std::string& track_uri) {
+  if (track_uri.empty()) return SourceKind::kUnknown;
+
+  const auto starts = [&track_uri](const char* prefix) {
+    return track_uri.rfind(prefix, 0) == 0;
+  };
+
+  // Barre de son sur l'entrée TV : HDMI-ARC ou optique.
+  if (starts("x-sonos-htastream:")) return SourceKind::kTvInput;
+  if (starts("x-rincon-stream:")) return SourceKind::kLineIn;
+  if (starts("x-rincon:")) return SourceKind::kSlave;
+  return SourceKind::kTrack;
+}
+
 std::string albumArtUrl(const std::string& coordinator_ip, const TrackInfo& track) {
   if (track.track_uri.empty()) return {};
 

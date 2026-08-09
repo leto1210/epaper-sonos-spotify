@@ -55,7 +55,7 @@ void test_paused_zone_still_counts_as_current() {
 
   const sonos::Choice choice = sonos::pickZone(zones, kPriorite);
 
-  TEST_ASSERT_TRUE(choice.playing);
+  TEST_ASSERT_TRUE(choice.found);
   TEST_ASSERT_EQUAL_STRING("Bureau", choice.name.c_str());
 }
 
@@ -83,6 +83,53 @@ void test_priority_decides_among_playing_zones() {
 
   TEST_ASSERT_EQUAL_STRING("Beam", sonos::pickZone(zones, {"Beam"}).name.c_str());
   TEST_ASSERT_EQUAL_STRING("Cuisine", sonos::pickZone(zones, {"Cuisine"}).name.c_str());
+}
+
+// Cas relevé sur le matériel : après un basculement Spotify Connect, l'enceinte
+// précédente garde un état PLAYING résiduel sans plus rien savoir du morceau.
+// Prioritaire, elle bloquait l'affichage sur une zone muette. Le classement
+// permet à l'appelant de descendre jusqu'à une zone qui répond vraiment.
+void test_ranking_offers_a_fallback_after_a_ghost_zone() {
+  const std::vector<ZoneStatus> zones = {
+      {"uuid-1", "Beam", "192.0.2.20", TransportState::kPlaying},     // fantôme
+      {"uuid-2", "Holiday", "192.0.2.21", TransportState::kPlaying},  // joue vraiment
+      {"uuid-3", "Cuisine", "192.0.2.11", TransportState::kPaused},
+  };
+
+  const std::vector<sonos::Choice> ranked = sonos::rankZones(zones, {"Beam"});
+
+  TEST_ASSERT_TRUE(ranked.size() >= 2);
+  TEST_ASSERT_EQUAL_STRING("Beam", ranked[0].name.c_str());
+  TEST_ASSERT_EQUAL_STRING("Holiday", ranked[1].name.c_str());
+  // La zone en pause reste proposée, mais en dernier.
+  TEST_ASSERT_EQUAL_STRING("Cuisine", ranked.back().name.c_str());
+}
+
+// Aucune zone ne doit apparaître deux fois : l'appelant compte sur le
+// classement pour épuiser les candidats, pas pour boucler.
+void test_ranking_has_no_duplicates() {
+  const std::vector<sonos::Choice> ranked =
+      sonos::rankZones(maison(), kPriorite, "Cuisine");
+
+  for (size_t i = 0; i < ranked.size(); ++i) {
+    for (size_t j = i + 1; j < ranked.size(); ++j) {
+      TEST_ASSERT_TRUE(ranked[i].name != ranked[j].name);
+    }
+  }
+}
+
+// Le drapeau `playing` doit dire la vérité : il servait à choisir l'icône du
+// bandeau, et valait « en lecture » y compris pour une zone en pause.
+void test_playing_flag_is_truthful_for_paused_zone() {
+  std::vector<ZoneStatus> zones = maison();
+  for (ZoneStatus& zone : zones) zone.state = TransportState::kStopped;
+  zones[1].state = TransportState::kPaused;
+
+  const sonos::Choice choice = sonos::pickZone(zones, kPriorite);
+
+  TEST_ASSERT_TRUE(choice.found);
+  TEST_ASSERT_EQUAL_STRING("Cuisine", choice.name.c_str());
+  TEST_ASSERT_FALSE(choice.playing);
 }
 
 // Rien ne joue : on garde la dernière zone affichée, en signalant qu'elle ne
@@ -137,6 +184,9 @@ int main(int, char**) {
   RUN_TEST(test_paused_zone_still_counts_as_current);
   RUN_TEST(test_actually_playing_beats_paused_favourite);
   RUN_TEST(test_priority_decides_among_playing_zones);
+  RUN_TEST(test_ranking_offers_a_fallback_after_a_ghost_zone);
+  RUN_TEST(test_ranking_has_no_duplicates);
+  RUN_TEST(test_playing_flag_is_truthful_for_paused_zone);
   RUN_TEST(test_keeps_last_zone_when_nothing_plays);
   RUN_TEST(test_nothing_to_show_at_all);
   RUN_TEST(test_forced_zone_wins);

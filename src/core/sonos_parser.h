@@ -58,6 +58,21 @@ TransportState parseTransportState(const std::string& soap);
 // Réponse de GetZoneGroupState.
 std::vector<ZoneGroup> parseZoneGroups(const std::string& soap);
 
+// Nature de la source, déduite du schéma de l'URI du morceau.
+enum class SourceKind {
+  kUnknown,
+  kTrack,     // musique : file d'attente, service en ligne, Spotify Connect
+  kTvInput,   // entrée HDMI/optique d'une barre de son
+  kLineIn,    // entrée analogique
+  kSlave,     // enceinte esclave : voir coordinator_uuid
+};
+
+// Une barre de son qui diffuse la télévision est légitimement en `PLAYING`
+// sans le moindre titre. Sans cette distinction, on ne peut pas différencier
+// « cette enceinte ne sait rien » de « cette enceinte joue autre chose que de
+// la musique », et le message d'erreur ment.
+SourceKind sourceKind(const std::string& track_uri);
+
 // Construit l'URL de la pochette servie par l'enceinte elle-même. On ne se sert
 // pas de `art_uri` quand il pointe vers un CDN : l'enceinte fait proxy et sert
 // l'image en HTTP simple sur le LAN, ce qui évite TLS et tout accès Internet.

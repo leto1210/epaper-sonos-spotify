@@ -107,6 +107,23 @@ void test_zone_groups_resolve_coordinators() {
 
 // --- Utilitaires ------------------------------------------------------------
 
+// La Beam sert aussi d'enceinte de télévision : elle est légitimement en
+// lecture, sans titre, quand la TV parle. Ce n'est pas une anomalie, et le
+// firmware ne doit pas la présenter comme telle.
+void test_source_kind_distinguishes_tv_from_music() {
+  TEST_ASSERT_EQUAL(sonos::SourceKind::kTvInput,
+                    sonos::sourceKind("x-sonos-htastream:RINCON_0001:spdif"));
+  TEST_ASSERT_EQUAL(sonos::SourceKind::kLineIn,
+                    sonos::sourceKind("x-rincon-stream:RINCON_0001"));
+  TEST_ASSERT_EQUAL(sonos::SourceKind::kSlave,
+                    sonos::sourceKind("x-rincon:RINCON_0002"));
+  TEST_ASSERT_EQUAL(sonos::SourceKind::kTrack,
+                    sonos::sourceKind("x-sonos-vli:RINCON_0001:2,spotify:abc"));
+  TEST_ASSERT_EQUAL(sonos::SourceKind::kTrack,
+                    sonos::sourceKind("x-sonos-spotify:spotify:track:xyz"));
+  TEST_ASSERT_EQUAL(sonos::SourceKind::kUnknown, sonos::sourceKind(""));
+}
+
 void test_parse_duration() {
   TEST_ASSERT_EQUAL_INT(193, sonos::parseDuration("0:03:13"));
   TEST_ASSERT_EQUAL_INT(3661, sonos::parseDuration("1:01:01"));
@@ -129,6 +146,7 @@ int main(int, char**) {
   RUN_TEST(test_idle_speaker_has_no_track);
   RUN_TEST(test_paused_spotify_connect_has_no_metadata);
   RUN_TEST(test_zone_groups_resolve_coordinators);
+  RUN_TEST(test_source_kind_distinguishes_tv_from_music);
   RUN_TEST(test_parse_duration);
   RUN_TEST(test_xml_unescape);
   return UNITY_END();

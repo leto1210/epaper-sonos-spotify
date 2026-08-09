@@ -48,23 +48,45 @@ void pollAndRender() {
                   stateLabel(zone.state));
   }
 
-  const sonos::Choice choice = sonos::pickZone(zones, kZonePriority, g_last_zone);
-  if (!choice.found) {
+  // On descend le classement jusqu'à une zone qui sait vraiment ce qu'elle
+  // joue. Après un basculement Spotify Connect, l'enceinte précédente garde un
+  // état PLAYING résiduel sans métadonnées : s'arrêter au premier candidat
+  // laissait l'écran figé sur cette zone fantôme.
+  const std::vector<sonos::Choice> ranked =
+      sonos::rankZones(zones, kZonePriority, g_last_zone);
+  if (ranked.empty()) {
     Serial.println("[sonos] aucune zone a afficher");
+    return;
+  }
+
+  sonos::Choice choice;
+  sonos::TrackInfo track;
+  for (const sonos::Choice& candidate : ranked) {
+    track = sonos_client::fetchPositionInfo(candidate.ip);
+    if (track.has_metadata) {
+      choice = candidate;
+      break;
+    }
+    const char* raison = "ne sait rien";
+    switch (sonos::sourceKind(track.track_uri)) {
+      case sonos::SourceKind::kTvInput: raison = "diffuse la television"; break;
+      case sonos::SourceKind::kLineIn: raison = "est sur son entree ligne"; break;
+      case sonos::SourceKind::kSlave: raison = "est esclave d'un groupe"; break;
+      default: break;
+    }
+    Serial.printf("[sonos] %s ecarte : %s\n", candidate.name.c_str(), raison);
+  }
+
+  if (!choice.found) {
+    // Aucune zone ne sait quoi que ce soit : on conserve la dernière fiche
+    // affichée plutôt que d'effacer l'écran.
+    Serial.println("[sonos] aucune metadonnee nulle part, ecran inchange");
     return;
   }
   g_last_zone = choice.name;
 
   Serial.printf("[sonos] zone retenue : %s (%s), %s\n", choice.name.c_str(),
-                choice.ip.c_str(), choice.playing ? "en lecture" : "inactive");
-
-  const sonos::TrackInfo track = sonos_client::fetchPositionInfo(choice.ip);
-  if (!track.has_metadata) {
-    // Attendu en Spotify Connect dès que la lecture n'est pas active. On
-    // conserve la dernière fiche affichée plutôt que d'effacer l'écran.
-    Serial.println("[sonos] pas de metadonnees, ecran inchange");
-    return;
-  }
+                choice.ip.c_str(), choice.playing ? "en lecture" : "en pause");
 
   Serial.printf("[sonos] %s - %s [%s] %d/%d s\n", track.artist.c_str(),
                 track.title.c_str(), track.album.c_str(), track.position_s,

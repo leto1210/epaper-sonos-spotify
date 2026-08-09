@@ -27,14 +27,24 @@ struct Choice {
   bool playing = false;
 };
 
-// Politique :
-//   1. parmi les zones qui jouent, la première de `priority` ;
-//   2. à défaut, n'importe quelle zone qui joue ;
-//   3. à défaut, la dernière zone retenue si elle existe encore ;
-//   4. sinon, rien.
+// Classement des zones à essayer, de la plus probable à la moins probable :
+//   1. celles qui jouent, dans l'ordre de `priority` puis les autres ;
+//   2. celles en pause, même ordre ;
+//   3. la dernière zone retenue si elle existe encore.
+//
+// Un classement plutôt qu'un choix unique, parce qu'une zone peut annoncer
+// `PLAYING` sans rien savoir du morceau : Spotify Connect laisse cet état
+// résiduel sur l'enceinte précédente après un basculement. L'appelant descend
+// le classement jusqu'à obtenir des métadonnées.
 //
 // `forced_zone` court-circuite tout : c'est le sélecteur exposé dans Home
 // Assistant. Vide ou "auto" pour appliquer la politique.
+std::vector<Choice> rankZones(const std::vector<ZoneStatus>& zones,
+                              const std::vector<std::string>& priority,
+                              const std::string& last_zone_name = {},
+                              const std::string& forced_zone = {});
+
+// Premier candidat du classement, ou `found = false` s'il est vide.
 Choice pickZone(const std::vector<ZoneStatus>& zones,
                 const std::vector<std::string>& priority,
                 const std::string& last_zone_name = {},

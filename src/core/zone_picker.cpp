@@ -22,54 +22,68 @@ const ZoneStatus* findByName(const std::vector<ZoneStatus>& zones, const std::st
   return nullptr;
 }
 
+Choice toChoice(const ZoneStatus& zone) {
+  return Choice{true, zone.name, zone.ip, isPlaying(zone)};
+}
+
+bool alreadyListed(const std::vector<Choice>& ranked, const std::string& name) {
+  for (const Choice& choice : ranked) {
+    if (choice.name == name) return true;
+  }
+  return false;
+}
+
+void append(std::vector<Choice>& ranked, const ZoneStatus& zone) {
+  if (!alreadyListed(ranked, zone.name)) ranked.push_back(toChoice(zone));
+}
+
 }  // namespace
 
-Choice pickZone(const std::vector<ZoneStatus>& zones,
-                const std::vector<std::string>& priority,
-                const std::string& last_zone_name,
-                const std::string& forced_zone) {
-  Choice choice;
+std::vector<Choice> rankZones(const std::vector<ZoneStatus>& zones,
+                              const std::vector<std::string>& priority,
+                              const std::string& last_zone_name,
+                              const std::string& forced_zone) {
+  std::vector<Choice> ranked;
 
   if (!forced_zone.empty() && forced_zone != "auto") {
-    if (const ZoneStatus* zone = findByName(zones, forced_zone)) {
-      choice.found = true;
-      choice.name = zone->name;
-      choice.ip = zone->ip;
-      choice.playing = isCurrent(*zone);
-    }
     // Une zone forcée introuvable ne doit pas retomber silencieusement sur une
     // autre pièce : l'utilisateur a demandé celle-là.
-    return choice;
+    if (const ZoneStatus* zone = findByName(zones, forced_zone)) {
+      ranked.push_back(toChoice(*zone));
+    }
+    return ranked;
   }
 
-  // Deux passes : ce qui joue vraiment d'abord, les préférences ensuite. Une
-  // zone favorite mise en pause ne doit pas masquer la pièce où la musique
-  // tourne réellement.
-  for (bool playing_only : {true, false}) {
-    auto retained = [playing_only](const ZoneStatus& zone) {
+  // Deux passes : ce qui joue vraiment d'abord, les zones en pause ensuite.
+  // Dans chaque passe, les préférences priment sur l'ordre de découverte.
+  for (const bool playing_only : {true, false}) {
+    const auto retained = [playing_only](const ZoneStatus& zone) {
       return playing_only ? isPlaying(zone) : isCurrent(zone);
     };
 
     for (const std::string& preferred : priority) {
       const ZoneStatus* zone = findByName(zones, preferred);
-      if (zone != nullptr && retained(*zone)) {
-        return Choice{true, zone->name, zone->ip, true};
-      }
+      if (zone != nullptr && retained(*zone)) append(ranked, *zone);
     }
     for (const ZoneStatus& zone : zones) {
-      if (retained(zone)) {
-        return Choice{true, zone.name, zone.ip, true};
-      }
+      if (retained(zone)) append(ranked, zone);
     }
   }
 
   if (!last_zone_name.empty()) {
-    if (const ZoneStatus* zone = findByName(zones, last_zone_name)) {
-      return Choice{true, zone->name, zone->ip, false};
-    }
+    if (const ZoneStatus* zone = findByName(zones, last_zone_name)) append(ranked, *zone);
   }
 
-  return choice;
+  return ranked;
+}
+
+Choice pickZone(const std::vector<ZoneStatus>& zones,
+                const std::vector<std::string>& priority,
+                const std::string& last_zone_name,
+                const std::string& forced_zone) {
+  const std::vector<Choice> ranked =
+      rankZones(zones, priority, last_zone_name, forced_zone);
+  return ranked.empty() ? Choice{} : ranked.front();
 }
 
 }  // namespace sonos
