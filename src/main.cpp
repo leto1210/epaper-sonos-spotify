@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "albumart.h"
+#include "buttons_io.h"
 #include "config.h"
 #include "core/version.h"
 #include "core/layout_plan.h"
@@ -34,6 +35,51 @@ const char* stateLabel(sonos::TransportState state) {
 // redessine que si l'un de ces éléments change réellement.
 std::string g_shown_fingerprint;
 std::string g_last_zone;
+
+// Coordinateur de la zone affichée : c'est à lui, et à lui seul, que les
+// commandes de transport doivent être adressées.
+std::string g_last_ip;
+
+// Applique une commande de transport à la zone affichée. Le rafraîchissement
+// n'est pas déclenché ici : il attend que la rafale d'appuis soit retombée.
+void sendTransport(buttons::Action action) {
+  if (g_last_ip.empty()) {
+    Serial.println("[boutons] aucune zone connue, commande ignoree");
+    return;
+  }
+
+  bool ok = false;
+  switch (action) {
+    case buttons::Action::kNext:
+      ok = sonos_client::next(g_last_ip);
+      Serial.printf("[boutons] suivant sur %s : %s\n", g_last_zone.c_str(),
+                    ok ? "ok" : "echec");
+      break;
+    case buttons::Action::kPrevious:
+      ok = sonos_client::previous(g_last_ip);
+      Serial.printf("[boutons] precedent sur %s : %s\n", g_last_zone.c_str(),
+                    ok ? "ok" : "echec");
+      break;
+    case buttons::Action::kPlayPause: {
+      // L'état est relu plutôt que déduit de l'affichage : celui-ci peut dater
+      // de plusieurs minutes, et la musique a pu être pilotée depuis le
+      // téléphone entre-temps.
+      const bool playing =
+          sonos_client::fetchTransportState(g_last_ip) == sonos::TransportState::kPlaying;
+      ok = playing ? sonos_client::pause(g_last_ip) : sonos_client::play(g_last_ip);
+      Serial.printf("[boutons] %s sur %s : %s\n", playing ? "pause" : "lecture",
+                    g_last_zone.c_str(), ok ? "ok" : "echec");
+      break;
+    }
+    case buttons::Action::kForceRedraw:
+      // Oublier l'empreinte suffit : le prochain rendu se fera sans condition.
+      g_shown_fingerprint.clear();
+      Serial.println("[boutons] redessin force");
+      break;
+    case buttons::Action::kNone:
+      break;
+  }
+}
 
 void pollAndRender() {
   std::vector<sonos::ZoneStatus> zones;
@@ -87,6 +133,7 @@ void pollAndRender() {
     return;
   }
   g_last_zone = choice.name;
+  g_last_ip = choice.ip;
 
   Serial.printf("[sonos] zone retenue : %s (%s), %s\n", choice.name.c_str(),
                 choice.ip.c_str(), choice.playing ? "en lecture" : "en pause");
@@ -141,6 +188,7 @@ void setup() {
 
   display::begin();
   sensors::begin();
+  buttons_io::begin();
 
   const bool online = wifi_mgr::connect();
   if (online) {
@@ -156,9 +204,23 @@ void setup() {
 void loop() {
   wifi_mgr::loop();
 
-  // Premier sondage immédiat, puis toutes les SONOS_POLL_INTERVAL_S secondes.
+  // Les boutons passent avant le sondage : une commande doit partir dans la
+  // seconde, alors qu'un sondage peut attendre le tour suivant.
+  const buttons::Action action = buttons_io::poll();
+  if (action != buttons::Action::kNone) sendTransport(action);
+
   static uint32_t last_poll_ms = 0;
   static bool first_poll_done = false;
+
+  // Rafale retombée : on redessine une fois, et une seule.
+  if (buttons_io::refreshDue() && wifi_mgr::isConnected()) {
+    last_poll_ms = millis();
+    first_poll_done = true;
+    pollAndRender();
+    return;
+  }
+
+  // Premier sondage immédiat, puis toutes les SONOS_POLL_INTERVAL_S secondes.
   if (wifi_mgr::isConnected() && !first_poll_done) {
     first_poll_done = true;
     last_poll_ms = millis();
@@ -172,5 +234,7 @@ void loop() {
     pollAndRender();
   }
 
-  delay(200);
+  // 10 ms : il faut échantillonner nettement plus vite que l'anti-rebond de
+  // 50 ms, sinon un appui bref passerait inaperçu.
+  delay(10);
 }

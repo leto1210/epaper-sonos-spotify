@@ -26,8 +26,9 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
       → 640x640 téléchargée, décodée et tramée en 1,0 s ; 8 tests sur le tramage
 - [x] **L9** — Capteurs SHT4x + batterie
       → 30,7 °C / 36 %HR / 4150 mV lus sur cible, 5 tests sur la conversion
-- [ ] **L10** — Boutons + buzzer (Next / Previous / Play-Pause)
-      → 4 appuis rapides ⇒ un seul refresh
+- [~] **L10** — Boutons + buzzer (Next / Previous / Play-Pause)
+      → 6 tests sur l'anti-rebond, l'appui long et la coalescence, dont la recette
+        « 4 appuis rapides ⇒ un seul refresh » ; reste à valider sur cible
 - [ ] **L11** — MQTT + Home Assistant Discovery
 - [ ] **L12** — Bouton refresh et select de zone depuis HA
 - [~] **L13** — Météo : abonnement MQTT + parsing + automatisation HA
@@ -37,6 +38,25 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
 - [ ] **L15** — Finition doc : photos, captures HA, schéma
 
 ## Revue
+
+### L10 (partielle, sans matériel)
+La logique tient dans `core/buttons` et ne voit que des niveaux et une horloge : anti-rebond,
+appui long et coalescence se testent donc entièrement sur le Mac. `src/buttons_io` se réduit à
+trois `digitalRead` et au bip.
+
+Deux points de conception qui ne se voient pas dans la recette :
+1. **Lecture/pause relit l'état de l'enceinte** au lieu de le déduire de l'affichage. Celui-ci
+   peut dater de plusieurs minutes, pendant lesquelles la musique a pu être pilotée depuis un
+   téléphone — inverser l'affichage aurait envoyé la mauvaise commande une fois sur deux.
+2. **L'appui long ne produit pas aussi un play/pause** au relâchement : sans cette garde, tout
+   redessin forcé aurait mis la musique en pause.
+
+La boucle principale échantillonne désormais à 10 ms, contre 200 ms : un appui bref serait
+passé sous l'anti-rebond de 50 ms.
+
+Un défaut attrapé par les tests, dans le test lui-même : le cas de débordement de `millis()`
+échouait parce que l'assistant de test calculait une date de fin qui débordait, pas parce que
+le contrôleur s'y perdait. Le contrôleur compare des différences signées.
 
 ### L0
 `platformio.ini` a demandé deux corrections avant de compiler, toutes deux documentées dans
