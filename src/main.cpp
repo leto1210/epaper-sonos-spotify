@@ -12,6 +12,7 @@
 #include "core/layout_plan.h"
 #include "core/zone_picker.h"
 #include "display.h"
+#include "mqtt.h"
 #include "sensors.h"
 #include "sonos_client.h"
 #include "wifi_mgr.h"
@@ -39,6 +40,40 @@ std::string g_last_zone;
 // Coordinateur de la zone affichée : c'est à lui, et à lui seul, que les
 // commandes de transport doivent être adressées.
 std::string g_last_ip;
+
+// Horodatage du dernier rafraîchissement, au format attendu par Home Assistant
+// (`device_class: timestamp`). Vide tant que l'heure n'a pas été synchronisée :
+// mieux vaut pas de date qu'une date de 1970.
+std::string g_last_refresh_iso;
+
+std::string nowIso8601() {
+  struct tm local;
+  if (!getLocalTime(&local, 0)) return {};
+  char buffer[32];
+  strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S%z", &local);
+  return buffer;
+}
+
+// Remonte les mesures à Home Assistant, indépendamment de l'écran : celui-ci
+// peut rester figé une heure sur le même morceau sans que la batterie ni la
+// température cessent d'être suivies.
+void publishMeasurements(const sensors::Reading& measures) {
+  if (!mqtt::isConnected()) return;
+
+  ha::State state;
+  state.battery_pct = measures.battery_pct;
+  state.battery_mv = measures.battery_mv;
+  state.charging = measures.charging;
+  state.has_climate = measures.has_climate;
+  state.temperature_c = measures.temperature_c;
+  state.humidity_pct = measures.humidity_pct;
+  state.rssi_dbm = WiFi.RSSI();
+  state.uptime_s = millis() / 1000;
+  state.refresh_count = static_cast<int>(display::refreshCount());
+  state.last_refresh_iso = g_last_refresh_iso;
+
+  mqtt::publishState(state);
+}
 
 // Applique une commande de transport à la zone affichée. Le rafraîchissement
 // n'est pas déclenché ici : il attend que la rafale d'appuis soit retombée.
@@ -142,6 +177,19 @@ void pollAndRender() {
                 track.title.c_str(), track.album.c_str(), track.position_s,
                 track.duration_s);
 
+  // Publié avant le test d'empreinte : Home Assistant suit la lecture au
+  // rythme du sondage, sans attendre les 37 s d'un rafraîchissement d'écran.
+  if (mqtt::isConnected()) {
+    ha::Track published;
+    published.title = track.title;
+    published.artist = track.artist;
+    published.album = track.album;
+    published.zone = choice.name;
+    published.art_url = track.art_uri;
+    published.playing = choice.playing;
+    mqtt::publishTrack(published);
+  }
+
   const std::string fingerprint =
       track.track_uri + "|" + track.title + "|" + choice.name +
       (choice.playing ? "|1" : "|0");
@@ -176,6 +224,8 @@ void pollAndRender() {
 
   display::showTrack(track, status, art);
   g_shown_fingerprint = fingerprint;
+  g_last_refresh_iso = nowIso8601();
+  publishMeasurements(measures);
 }
 
 }  // namespace
@@ -189,6 +239,7 @@ void setup() {
   display::begin();
   sensors::begin();
   buttons_io::begin();
+  mqtt::begin();
 
   const bool online = wifi_mgr::connect();
   if (online) {
@@ -203,6 +254,15 @@ void setup() {
 
 void loop() {
   wifi_mgr::loop();
+  mqtt::loop();
+
+  // Les mesures partent toutes les 5 minutes, quoi qu'affiche l'écran.
+  static uint32_t last_publish_ms = 0;
+  if (mqtt::isConnected() &&
+      (last_publish_ms == 0 || millis() - last_publish_ms >= 300000UL)) {
+    last_publish_ms = millis();
+    publishMeasurements(sensors::read());
+  }
 
   // Les boutons passent avant le sondage : une commande doit partir dans la
   // seconde, alors qu'un sondage peut attendre le tour suivant.

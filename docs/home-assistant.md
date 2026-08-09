@@ -1,7 +1,7 @@
 # Intégration Home Assistant
 
-> Les entités publiées par le boîtier arrivent à la livraison L11. La météo, décrite en fin
-> de page, est déjà spécifiée et testée.
+> Le bouton « Rafraîchir » et le sélecteur de zone arrivent à la livraison L12 ; les neuf
+> autres entités sont publiées depuis L11.
 
 Le firmware ne dépend pas de Home Assistant pour fonctionner : laissez `MQTT_HOST` vide dans
 `src/config.h` pour désactiver complètement cette partie.
@@ -17,6 +17,14 @@ Aucun YAML à écrire côté Home Assistant : l'appareil apparaît tout seul.
   fait passer les entités en `unavailable` si le boîtier se coupe
 - Bloc `device` commun à toutes les entités, pour qu'elles soient regroupées sous un seul
   appareil « ePaper Sonos »
+- Deux sujets d'état seulement — `reterminal_sonos/state` pour les mesures,
+  `reterminal_sonos/track` pour le morceau et ses attributs. Home Assistant extrait chaque
+  valeur par `value_template` : une publication au lieu de neuf, et des mesures cohérentes
+  entre elles puisqu'elles proviennent du même instant.
+
+Une mesure absente — ADC non lu, SHT4x muet — est **omise** du payload plutôt que publiée à
+zéro : l'entité passe à « inconnu », ce qui est la vérité, au lieu d'annoncer une batterie
+vide ou 0 °C.
 
 ## Entités exposées
 

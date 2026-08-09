@@ -29,7 +29,9 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
 - [~] **L10** — Boutons + buzzer (Next / Previous / Play-Pause)
       → 6 tests sur l'anti-rebond, l'appui long et la coalescence, dont la recette
         « 4 appuis rapides ⇒ un seul refresh » ; reste à valider sur cible
-- [ ] **L11** — MQTT + Home Assistant Discovery
+- [~] **L11** — MQTT + Home Assistant Discovery
+      → 9 entités publiées, 8 tests sur les payloads ; reste à voir l'appareil apparaître
+        dans HA, boîtier branché
 - [ ] **L12** — Bouton refresh et select de zone depuis HA
 - [~] **L13** — Météo : abonnement MQTT + parsing + automatisation HA
       → contrat de données, automatisation HA et parseur faits (5 tests) ; il reste
@@ -38,6 +40,23 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
 - [ ] **L15** — Finition doc : photos, captures HA, schéma
 
 ## Revue
+
+### L11 (partielle, sans matériel)
+Les payloads se construisent dans `core/ha_discovery`, donc se vérifient au caractère près
+sans broker. Deux tests valent surtout par le défaut qu'ils empêchent :
+
+- **`unique_id` distincts** : un doublon ne provoque aucune erreur MQTT, il fait simplement
+  disparaître une entité, l'autre l'écrasant. C'est le genre de panne qu'on met une heure à
+  comprendre dans l'interface de Home Assistant.
+- **bloc `device` identique partout** : sans lui, ce sont neuf appareils orphelins qui
+  apparaissent au lieu d'un seul.
+
+Côté transport, le tampon de `PubSubClient` est porté de 256 à 1024 octets : un message de
+découverte en fait environ 700, et une publication trop grande **échoue silencieusement**.
+
+Le morceau est publié **avant** le test d'anti-redraw : Home Assistant suit la lecture au
+rythme du sondage, sans attendre les 37 s d'un rafraîchissement d'écran. Les mesures partent
+toutes les 5 minutes, même écran figé.
 
 ### L10 (partielle, sans matériel)
 La logique tient dans `core/buttons` et ne voit que des niveaux et une horloge : anti-rebond,
