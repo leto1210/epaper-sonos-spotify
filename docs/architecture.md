@@ -32,9 +32,11 @@ BOOT ──> WIFI ──> DISCOVER ──> POLL ──┬──> RENDER ──�
                                     SLEEP ──(timer 60 s | bouton)──> POLL
 ```
 
-- **DISCOVER** — SSDP puis `GetZoneGroupState` : établit la liste des zones et, surtout, le
-  **coordinateur** de chaque groupe. Interroger une enceinte esclave renvoie
-  `NOT_IMPLEMENTED` pour les métadonnées : c'est le piège classique de l'API Sonos.
+- **DISCOVER** — `GetZoneGroupState` depuis l'IP d'amorçage : établit la liste des zones et,
+  surtout, le **coordinateur** de chaque groupe. Interroger une enceinte esclave renvoie
+  `NOT_IMPLEMENTED` pour les métadonnées : c'est le piège classique de l'API Sonos. Mesuré à
+  350-500 ms pour huit zones. La découverte SSDP n'est pas implémentée — voir
+  [docs/sonos-api.md](sonos-api.md).
 - **POLL** — toutes les 20 s, `GetTransportInfo` puis `GetPositionInfo` sur le coordinateur.
 - **RENDER** — téléchargement de la pochette, décodage JPEG en PSRAM, tramage vers les
   6 couleurs, composition, un unique refresh.
@@ -42,10 +44,22 @@ BOOT ──> WIFI ──> DISCOVER ──> POLL ──┬──> RENDER ──�
 
 ## Sélection de la zone affichée
 
-En mode `auto` : parmi les coordinateurs, on retient ceux dont l'état est `PLAYING` ; si
-plusieurs jouent, on applique l'ordre de préférence de `SONOS_ZONE_PRIORITY` ; si aucun ne
-joue, on garde la dernière zone active puis on bascule en écran de veille. L'entité `select`
-exposée dans Home Assistant permet de forcer manuellement une pièce.
+En mode `auto`, le choix se fait en **deux passes** :
+
+1. parmi les zones qui jouent réellement, la première de `SONOS_ZONE_PRIORITY`, ou à défaut
+   n'importe laquelle ;
+2. seulement ensuite, même chose en acceptant les zones en pause ;
+3. à défaut, la dernière zone retenue — l'écran conserve alors sa fiche plutôt que de se
+   vider ;
+4. sinon, écran météo.
+
+L'ordre des passes n'est pas un détail : traiter « en pause » et « en lecture » à égalité
+faisait remonter une pièce favorite mise en pause devant celle où la musique tournait
+vraiment. Le cas est couvert par un test.
+
+L'entité `select` exposée dans Home Assistant l'emporte sur toute cette logique. Une zone
+forcée devenue introuvable n'affiche rien plutôt que de basculer en silence sur une autre
+pièce.
 
 ## Boutons
 

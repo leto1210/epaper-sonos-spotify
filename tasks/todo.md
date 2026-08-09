@@ -15,10 +15,10 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
       → IP obtenue en 1,3 s, heure NTP correcte, test TCP de joignabilité intégré
 - [x] **L3** — Fixtures Sonos + parseur DIDL-Lite
       → 8 tests unitaires au vert sur 5 captures réelles anonymisées
-- [ ] **L4** — SSDP + choix du coordinateur
-      → zones listées en série, coordinateur identifié
-- [ ] **L5** — `GetPositionInfo` en direct
-      → titre/artiste corrects en série en moins de 20 s
+- [x] **L4** — Topologie + choix du coordinateur
+      → 8 zones et leurs coordinateurs en 350-500 ms, 10 tests sur la politique de choix
+- [x] **L5** — `GetPositionInfo` en direct
+      → morceau réel lu sur cible, position et URL de pochette correctes
 - [ ] **L6** — Layout texte sur ePaper
 - [ ] **L7** — Anti-redraw + compteur de refresh
       → 10 min sur le même morceau ⇒ compteur = 1
@@ -84,3 +84,18 @@ d'attente inexpliqué au premier sondage. Home Assistant, lui, est du bon côté
 MQTT et la météo ne demandent aucune ouverture. Il reste à autoriser **TCP 1400** vers les
 enceintes ; la découverte SSDP, en multicast, ne franchira de toute façon jamais le routeur,
 d'où le passage de `SONOS_SEED_IP` du statut de repli à celui de mode nominal.
+
+### L4 et L5
+La topologie des 8 zones, coordinateurs compris, est résolue en 350 à 500 ms depuis une seule
+IP d'amorçage. La découverte SSDP n'a jamais été écrite : elle serait inutilisable ici, et un
+code mort qu'on ne peut pas tester ne vaut pas mieux que pas de code.
+
+**Défaut de conception attrapé sur le matériel** : ma politique traitait « en pause » et « en
+lecture » à égalité dès le premier tri. Résultat, la Cuisine en pause — prioritaire dans la
+configuration — était retenue alors que le Beam jouait vraiment. Le choix se fait désormais en
+deux passes : ce qui joue d'abord, les préférences ensuite. Deux tests couvrent exactement ce
+cas ; les tests initiaux ne le voyaient pas, puisqu'ils reproduisaient la même confusion que
+le code.
+
+Second écart entre configuration et réalité : les zones s'appellent « Sonos Séjour » et non
+« Séjour ». Le firmware liste les noms réels au démarrage, et `config.example.h` le signale.

@@ -18,8 +18,14 @@
 #define SONOS_SEED_IP "192.168.1.50"
 
 // Ordre de préférence quand plusieurs zones jouent en même temps.
-// Utilisez les noms exacts affichés dans l'app Sonos.
-#define SONOS_ZONE_PRIORITY {"Séjour", "Cuisine", "Bureau"}
+//
+// Les noms doivent correspondre **exactement** à ceux de l'app Sonos, préfixe
+// compris : une pièce « Séjour » y apparaît souvent comme « Sonos Séjour ».
+// Le firmware liste les noms réels sur le port série au démarrage.
+//
+// Cette liste ne départage que des zones qui jouent : une pièce favorite mise
+// en pause ne masquera jamais celle où la musique tourne réellement.
+#define SONOS_ZONE_PRIORITY {"Sonos Séjour", "Sonos Beam", "Sonos Cuisine"}
 
 // Intervalle de sondage de Sonos, en secondes. Inutile de descendre bas :
 // un rafraîchissement de l'ePaper prend déjà 25-30 s.
