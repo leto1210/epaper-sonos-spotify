@@ -1,7 +1,6 @@
 # Intégration Home Assistant
 
-> Le bouton « Rafraîchir » et le sélecteur de zone arrivent à la livraison L12 ; les neuf
-> autres entités sont publiées depuis L11.
+> Les onze entités sont publiées et vérifiées sur le matériel.
 
 Le firmware ne dépend pas de Home Assistant pour fonctionner : laissez `MQTT_HOST` vide dans
 `src/config.h` pour désactiver complètement cette partie.
@@ -41,6 +40,14 @@ vide ou 0 °C.
 | Morceau en cours | `sensor` | valeur = titre, attributs : artiste, album, zone, URL de pochette |
 | Rafraîchir l'écran | `button` | déclenche un redraw immédiat |
 | Zone suivie | `select` | `auto` ou une pièce précise |
+
+Le sélecteur est alimenté par la **topologie réelle**, pas par `SONOS_ZONE_PRIORITY` : sa
+découverte est republiée avec les noms des pièces dès le premier sondage. Il ne propose donc
+que `auto` pendant les quelques secondes qui suivent la connexion.
+
+Une zone imposée qui ne sait pas ce qu'elle joue — silence, télévision, entrée ligne — fait
+basculer l'écran sur la météo plutôt que de retomber sur une autre pièce : c'est celle-là que
+l'utilisateur a demandée.
 
 ## Tableau de bord
 

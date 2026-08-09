@@ -23,7 +23,9 @@ std::string configTopic(const Device& device, const Entity& entity) {
          "/config";
 }
 
-std::vector<Entity> entities() {
+const char* const kAutoZone = "auto";
+
+std::vector<Entity> entities(const std::vector<std::string>& zones) {
   std::vector<Entity> list;
 
   Entity battery;
@@ -117,6 +119,27 @@ std::vector<Entity> entities() {
   track.json_attributes = true;
   list.push_back(track);
 
+  // Un rafraîchissement coûte 37 s : le bouton sert surtout à reprendre la main
+  // après un affichage qu'on juge faux, pas à rythmer l'écran.
+  Entity refresh;
+  refresh.object_id = "rafraichir";
+  refresh.component = "button";
+  refresh.name = "Rafraîchir l'écran";
+  refresh.icon = "mdi:image-refresh";
+  refresh.command_topic_suffix = "/cmd/refresh";
+  list.push_back(refresh);
+
+  Entity zone;
+  zone.object_id = "zone";
+  zone.component = "select";
+  zone.name = "Zone suivie";
+  zone.icon = "mdi:speaker-multiple";
+  zone.value_template = "{{ value_json.zone }}";
+  zone.command_topic_suffix = "/cmd/zone";
+  zone.options.push_back(kAutoZone);
+  for (const std::string& name : zones) zone.options.push_back(name);
+  list.push_back(zone);
+
   return list;
 }
 
@@ -130,8 +153,20 @@ std::string discoveryPayload(const Device& device, const Entity& entity) {
   const std::string state_topic = entity.state_topic_suffix.empty()
                                       ? stateTopic(device)
                                       : device.id + entity.state_topic_suffix;
-  doc["state_topic"] = state_topic;
-  if (entity.json_attributes) doc["json_attributes_topic"] = state_topic;
+  // Un `button` n'a pas d'état : il ne porte qu'un sujet de commande. Lui en
+  // déclarer un le laisserait indisponible faute de valeur reçue.
+  if (entity.component != "button") {
+    doc["state_topic"] = state_topic;
+    if (entity.json_attributes) doc["json_attributes_topic"] = state_topic;
+  }
+
+  if (!entity.command_topic_suffix.empty()) {
+    doc["command_topic"] = device.id + entity.command_topic_suffix;
+  }
+  if (!entity.options.empty()) {
+    JsonArray options = doc["options"].to<JsonArray>();
+    for (const std::string& option : entity.options) options.add(option);
+  }
 
   addIfSet(doc, "device_class", entity.device_class);
   addIfSet(doc, "state_class", entity.state_class);
@@ -180,10 +215,42 @@ std::string statePayload(const State& state) {
   doc["up"] = state.uptime_s;
   doc["refresh"] = state.refresh_count;
   if (!state.last_refresh_iso.empty()) doc["last"] = state.last_refresh_iso;
+  doc["zone"] = state.selected_zone;
 
   std::string out;
   serializeJson(doc, out);
   return out;
+}
+
+std::vector<std::string> commandTopics(const Device& device) {
+  std::vector<std::string> topics;
+  for (const Entity& entity : entities()) {
+    if (!entity.command_topic_suffix.empty()) {
+      topics.push_back(device.id + entity.command_topic_suffix);
+    }
+  }
+  return topics;
+}
+
+Command parseCommand(const Device& device, const std::string& topic,
+                     const std::string& payload) {
+  Command command;
+
+  if (topic == device.id + "/cmd/refresh") {
+    command.kind = CommandKind::kRefresh;
+    return command;
+  }
+
+  if (topic == device.id + "/cmd/zone") {
+    // Une sélection vide ne veut rien dire : mieux vaut ne rien changer que de
+    // basculer sur une zone qui n'existe pas.
+    if (payload.empty()) return command;
+    command.kind = CommandKind::kSelectZone;
+    command.zone = payload;
+    return command;
+  }
+
+  return command;
 }
 
 std::string trackPayload(const Track& track) {

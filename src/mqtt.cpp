@@ -33,13 +33,20 @@ bool g_discovery_sent = false;
 uint32_t g_last_attempt_ms = 0;
 
 weather::Report g_weather;
+void (*g_on_command)(const ha::Command&) = nullptr;
+std::vector<std::string> g_zones;
 
 // Le payload arrive en octets bruts, sans terminateur : PubSubClient réutilise
 // son tampon d'un message à l'autre. On copie avant d'analyser.
 void onMessage(char* topic, uint8_t* payload, unsigned int length) {
-  if (ha::weatherTopic(g_device) != topic) return;
-
   const std::string json(reinterpret_cast<const char*>(payload), length);
+
+  if (ha::weatherTopic(g_device) != topic) {
+    const ha::Command command = ha::parseCommand(g_device, topic, json);
+    if (command.kind != ha::CommandKind::kNone && g_on_command) g_on_command(command);
+    return;
+  }
+
   const weather::Report report = weather::parse(json);
   if (!report.valid) {
     Serial.printf("[mqtt] meteo illisible (%u octets)\n", length);
@@ -54,7 +61,7 @@ void onMessage(char* topic, uint8_t* payload, unsigned int length) {
 
 void publishDiscovery() {
   int published = 0;
-  for (const ha::Entity& entity : ha::entities()) {
+  for (const ha::Entity& entity : ha::entities(g_zones)) {
     const std::string topic = ha::configTopic(g_device, entity);
     const std::string payload = ha::discoveryPayload(g_device, entity);
     // `retain` : les entités survivent à un redémarrage de Home Assistant sans
@@ -63,7 +70,7 @@ void publishDiscovery() {
     else Serial.printf("[mqtt] echec de publication : %s\n", topic.c_str());
   }
   Serial.printf("[mqtt] decouverte : %d/%d entites\n", published,
-                static_cast<int>(ha::entities().size()));
+                static_cast<int>(ha::entities(g_zones).size()));
 }
 
 bool connect() {
@@ -84,6 +91,9 @@ bool connect() {
   // À réabonner à chaque connexion : la session n'est pas persistante. Le
   // sujet étant retenu, la météo courante arrive dans la foulée.
   g_client.subscribe(ha::weatherTopic(g_device).c_str());
+  for (const std::string& topic : ha::commandTopics(g_device)) {
+    g_client.subscribe(topic.c_str());
+  }
 
   if (!g_discovery_sent) {
     publishDiscovery();
@@ -99,8 +109,9 @@ bool publish(const std::string& topic, const std::string& payload) {
 
 }  // namespace
 
-void begin() {
+void begin(void (*onCommand)(const ha::Command&)) {
   g_device.sw_version = epaper_spotify::kFirmwareVersion;
+  g_on_command = onCommand;
 
   if (sizeof(MQTT_HOST) <= 1) {
     Serial.println("[mqtt] desactive (MQTT_HOST vide)");
@@ -143,5 +154,21 @@ void publishTrack(const ha::Track& track) {
 }
 
 const weather::Report& weatherReport() { return g_weather; }
+
+void publishZoneOptions(const std::vector<std::string>& zones) {
+  // La découverte est retenue par le broker : la republier à l'identique à
+  // chaque sondage ferait recharger l'entité dans Home Assistant pour rien.
+  if (zones == g_zones) return;
+  g_zones = zones;
+  if (!isConnected()) return;
+
+  for (const ha::Entity& entity : ha::entities(g_zones)) {
+    if (entity.object_id != "zone") continue;
+    g_client.publish(ha::configTopic(g_device, entity).c_str(),
+                     ha::discoveryPayload(g_device, entity).c_str(), true);
+    Serial.printf("[mqtt] selecteur de zone : %u pieces\n",
+                  static_cast<unsigned>(zones.size()));
+  }
+}
 
 }  // namespace mqtt

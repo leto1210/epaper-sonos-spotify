@@ -42,6 +42,12 @@ std::string g_last_zone;
 // commandes de transport doivent être adressées.
 std::string g_last_ip;
 
+// Zone imposée depuis Home Assistant, ou `auto` pour laisser la politique de
+// choix décider. Non conservée au redémarrage : l'automatique est le mode
+// nominal, et retrouver une pièce figée après une coupure de courant serait
+// plus déroutant qu'utile.
+std::string g_forced_zone = ha::kAutoZone;
+
 // Horodatage du dernier rafraîchissement, au format attendu par Home Assistant
 // (`device_class: timestamp`). Vide tant que l'heure n'a pas été synchronisée :
 // mieux vaut pas de date qu'une date de 1970.
@@ -72,6 +78,7 @@ void publishMeasurements(const sensors::Reading& measures) {
   state.uptime_s = millis() / 1000;
   state.refresh_count = static_cast<int>(display::refreshCount());
   state.last_refresh_iso = g_last_refresh_iso;
+  state.selected_zone = g_forced_zone;
 
   mqtt::publishState(state);
 }
@@ -117,6 +124,29 @@ void sendTransport(buttons::Action action) {
   }
 }
 
+// Un rendu dure 37 s. Le déclencher depuis la fonction de rappel MQTT
+// bloquerait la pile réseau au milieu du traitement d'un message : on note la
+// demande, et la boucle principale s'en charge.
+bool g_pending_render = false;
+
+void onHomeAssistantCommand(const ha::Command& command) {
+  switch (command.kind) {
+    case ha::CommandKind::kRefresh:
+      Serial.println("[ha] rafraichissement demande");
+      break;
+    case ha::CommandKind::kSelectZone:
+      Serial.printf("[ha] zone imposee : %s\n", command.zone.c_str());
+      g_forced_zone = command.zone;
+      break;
+    case ha::CommandKind::kNone:
+      return;
+  }
+
+  // Oublier l'empreinte suffit à rendre le prochain rendu inconditionnel.
+  g_shown_fingerprint.clear();
+  g_pending_render = true;
+}
+
 // Écran de repli quand rien ne joue. Même politique que pour le morceau : une
 // empreinte, et pas de rafraîchissement si rien n'a bougé.
 void renderWeather() {
@@ -160,12 +190,22 @@ void pollAndRender() {
                   stateLabel(zone.state));
   }
 
+  // Le sélecteur de Home Assistant propose les pièces réelles, pas celles de
+  // la configuration : « Séjour » s'y appelle « Sonos Séjour ».
+  std::vector<std::string> names;
+  for (const sonos::ZoneStatus& zone : zones) names.push_back(zone.name);
+  mqtt::publishZoneOptions(names);
+
   // On descend le classement jusqu'à une zone qui sait vraiment ce qu'elle
   // joue. Après un basculement Spotify Connect, l'enceinte précédente garde un
   // état PLAYING résiduel sans métadonnées : s'arrêter au premier candidat
   // laissait l'écran figé sur cette zone fantôme.
+  // `forced_zone` court-circuite la politique de choix : c'est le sélecteur de
+  // Home Assistant. Une zone forcée introuvable ne retombe pas sur une autre
+  // pièce — l'utilisateur a demandé celle-là — et l'écran passe à la météo.
   const std::vector<sonos::Choice> ranked =
-      sonos::rankZones(zones, kZonePriority, g_last_zone);
+      sonos::rankZones(zones, kZonePriority, g_last_zone, g_forced_zone);
+
   if (ranked.empty()) {
     Serial.println("[sonos] aucune zone a afficher, ecran meteo");
     renderWeather();
@@ -269,7 +309,7 @@ void setup() {
   display::begin();
   sensors::begin();
   buttons_io::begin();
-  mqtt::begin();
+  mqtt::begin(onHomeAssistantCommand);
 
   const bool online = wifi_mgr::connect();
   if (online) {
@@ -301,6 +341,21 @@ void loop() {
 
   static uint32_t last_poll_ms = 0;
   static bool first_poll_done = false;
+
+  // Demande venue de Home Assistant, traitée hors de la fonction de rappel MQTT.
+  if (g_pending_render && wifi_mgr::isConnected()) {
+    g_pending_render = false;
+
+    // L'accusé de réception part avant le rendu : sans cela, le sélecteur
+    // resterait sur son ancienne valeur dans Home Assistant pendant les 37 s du
+    // rafraîchissement, et jusqu'à la publication périodique suivante.
+    publishMeasurements(sensors::read());
+
+    last_poll_ms = millis();
+    first_poll_done = true;
+    pollAndRender();
+    return;
+  }
 
   // Rafale retombée : on redessine une fois, et une seule.
   if (buttons_io::refreshDue() && wifi_mgr::isConnected()) {

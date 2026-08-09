@@ -48,7 +48,7 @@ void test_unique_ids_are_unique() {
     TEST_ASSERT_FALSE_MESSAGE(seen.count(unique_id) > 0, unique_id.c_str());
     seen.insert(unique_id);
   }
-  TEST_ASSERT_EQUAL_INT(9, static_cast<int>(seen.size()));
+  TEST_ASSERT_EQUAL_INT(11, static_cast<int>(seen.size()));
 }
 
 // C'est ce bloc, identique partout, qui regroupe les entités sous un seul
@@ -78,6 +78,7 @@ void test_track_entity_carries_attributes_on_its_own_topic() {
 void test_measurements_share_one_state_topic() {
   for (const ha::Entity& entity : ha::entities()) {
     if (entity.object_id == "morceau") continue;
+    if (entity.component == "button") continue;  // un bouton n'a pas d'état
     const JsonDocument doc = parsed(ha::discoveryPayload(device(), entity));
     TEST_ASSERT_EQUAL_STRING("reterminal_sonos/state",
                              doc["state_topic"].as<std::string>().c_str());
@@ -135,6 +136,68 @@ void test_track_payload_escapes_special_characters() {
   TEST_ASSERT_TRUE(doc["playing"].as<bool>());
 }
 
+// --- Entités pilotables ------------------------------------------------------
+
+// Un `button` sans état resterait indisponible s'il déclarait un `state_topic`
+// sur lequel rien n'arrive jamais.
+void test_refresh_button_declares_only_a_command_topic() {
+  const JsonDocument doc =
+      parsed(ha::discoveryPayload(device(), entityNamed("rafraichir")));
+  TEST_ASSERT_EQUAL_STRING("reterminal_sonos/cmd/refresh",
+                           doc["command_topic"].as<std::string>().c_str());
+  TEST_ASSERT_FALSE(doc["state_topic"].is<std::string>());
+}
+
+// La topologie n'est pas connue à la première connexion : le sélecteur ne
+// propose alors qu'`auto`, puis sa découverte est republiée avec les vrais
+// noms de pièces.
+void test_zone_select_lists_auto_then_the_real_zones() {
+  const JsonDocument empty =
+      parsed(ha::discoveryPayload(device(), entityNamed("zone")));
+  TEST_ASSERT_EQUAL_INT(1, static_cast<int>(empty["options"].size()));
+  TEST_ASSERT_EQUAL_STRING("auto", empty["options"][0].as<std::string>().c_str());
+
+  ha::Entity zone;
+  for (const ha::Entity& candidate : ha::entities({"Sonos Séjour", "Sonos Beam"})) {
+    if (candidate.object_id == "zone") zone = candidate;
+  }
+  const JsonDocument doc = parsed(ha::discoveryPayload(device(), zone));
+  TEST_ASSERT_EQUAL_INT(3, static_cast<int>(doc["options"].size()));
+  TEST_ASSERT_EQUAL_STRING("auto", doc["options"][0].as<std::string>().c_str());
+  TEST_ASSERT_EQUAL_STRING("Sonos Séjour", doc["options"][1].as<std::string>().c_str());
+}
+
+void test_command_topics_are_the_two_writable_entities() {
+  const std::vector<std::string> topics = ha::commandTopics(device());
+  TEST_ASSERT_EQUAL_INT(2, static_cast<int>(topics.size()));
+  TEST_ASSERT_EQUAL_STRING("reterminal_sonos/cmd/refresh", topics[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("reterminal_sonos/cmd/zone", topics[1].c_str());
+}
+
+void test_parses_incoming_commands() {
+  const ha::Device dev = device();
+
+  TEST_ASSERT_EQUAL(ha::CommandKind::kRefresh,
+                    ha::parseCommand(dev, "reterminal_sonos/cmd/refresh", "PRESS").kind);
+
+  const ha::Command zone =
+      ha::parseCommand(dev, "reterminal_sonos/cmd/zone", "Sonos Cuisine");
+  TEST_ASSERT_EQUAL(ha::CommandKind::kSelectZone, zone.kind);
+  TEST_ASSERT_EQUAL_STRING("Sonos Cuisine", zone.zone.c_str());
+}
+
+// Un message qu'on ne comprend pas ne doit rien déclencher : ni redessin de
+// 37 s, ni bascule vers une zone inexistante.
+void test_ignores_unknown_or_empty_commands() {
+  const ha::Device dev = device();
+  TEST_ASSERT_EQUAL(ha::CommandKind::kNone,
+                    ha::parseCommand(dev, "reterminal_sonos/weather", "{}").kind);
+  TEST_ASSERT_EQUAL(ha::CommandKind::kNone,
+                    ha::parseCommand(dev, "autre_appareil/cmd/refresh", "PRESS").kind);
+  TEST_ASSERT_EQUAL(ha::CommandKind::kNone,
+                    ha::parseCommand(dev, "reterminal_sonos/cmd/zone", "").kind);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_config_topic_follows_discovery_convention);
@@ -145,5 +208,10 @@ int main(int, char**) {
   RUN_TEST(test_state_payload_carries_the_measurements);
   RUN_TEST(test_missing_measurements_are_omitted_not_zeroed);
   RUN_TEST(test_track_payload_escapes_special_characters);
+  RUN_TEST(test_refresh_button_declares_only_a_command_topic);
+  RUN_TEST(test_zone_select_lists_auto_then_the_real_zones);
+  RUN_TEST(test_command_topics_are_the_two_writable_entities);
+  RUN_TEST(test_parses_incoming_commands);
+  RUN_TEST(test_ignores_unknown_or_empty_commands);
   return UNITY_END();
 }

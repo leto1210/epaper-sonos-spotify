@@ -32,10 +32,12 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
 - [x] **L11** — MQTT + Home Assistant Discovery
       → validé sur cible : 9/9 entités dans HA sous un seul appareil, mesures et morceau
         à jour ; 8 tests
-- [ ] **L12** — Bouton refresh et select de zone depuis HA
-- [~] **L13** — Météo : abonnement MQTT + parsing + automatisation HA
-      → contrat, automatisation HA, parseur, abonnement et écran faits (11 tests) ;
-        reste à voir l'écran météo sur le panneau
+- [x] **L12** — Bouton refresh et select de zone depuis HA
+      → validé sur cible : bouton → redessin, sélecteur → zone imposée et état confirmé
+        dans HA ; 5 tests
+- [x] **L13** — Météo : abonnement MQTT + parsing + automatisation HA
+      → validé sur cible : écran météo affiché quand plus aucune zone ne sait ce
+        qu'elle joue, puis stable ; 11 tests
 - [ ] **L14** — Écran de veille + deep sleep
 - [ ] **L15** — Finition doc : photos, captures HA, schéma
 
@@ -79,6 +81,25 @@ découverte en fait environ 700, et une publication trop grande **échoue silenc
 Le morceau est publié **avant** le test d'anti-redraw : Home Assistant suit la lecture au
 rythme du sondage, sans attendre les 37 s d'un rafraîchissement d'écran. Les mesures partent
 toutes les 5 minutes, même écran figé.
+
+### L12
+Le sélecteur ne propose pas les noms de la configuration mais **ceux de la topologie réelle** :
+la découverte est republiée avec les huit pièces dès le premier sondage. « Séjour » y figure
+sous son vrai nom, « Sonos Séjour ».
+
+`rankZones` traitait déjà le cas d'une zone imposée, y compris à l'arrêt — j'avais commencé à
+réécrire ce filtre dans `main` avant de m'en rendre compte, et l'ai supprimé.
+
+Deux détails corrigés parce qu'ils se voyaient à l'usage :
+- un `button` ne déclare **pas** de `state_topic` : il resterait indisponible en attendant une
+  valeur qui n'arrive jamais ;
+- l'état est republié **avant** le rendu, sinon le sélecteur garde son ancienne valeur dans
+  Home Assistant pendant les 37 s du rafraîchissement. Home Assistant le signalait :
+  « state change could not be verified ».
+
+C'est ce test qui a permis de voir enfin **l'écran météo** : forcer la Cuisine, qui ne sait rien,
+fait basculer l'affichage. `[sonos] aucune metadonnee nulle part, ecran meteo` puis un seul
+rafraîchissement, et plus rien ensuite.
 
 ### Recette matérielle de L10, L11 et L13
 

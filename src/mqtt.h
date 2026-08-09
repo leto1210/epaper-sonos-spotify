@@ -8,7 +8,13 @@
 // exactement comme avant.
 namespace mqtt {
 
-void begin();
+// `onCommand` est appelé depuis `loop()` quand Home Assistant actionne le
+// bouton ou le sélecteur.
+void begin(void (*onCommand)(const ha::Command&) = nullptr);
+
+// Republie la découverte du sélecteur avec les vrais noms de zones, une fois la
+// topologie connue. Sans effet si la liste n'a pas changé.
+void publishZoneOptions(const std::vector<std::string>& zones);
 
 // Reconnexion non bloquante et entretien de la session. À appeler à chaque
 // tour de boucle.
