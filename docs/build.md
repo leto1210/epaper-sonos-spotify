@@ -25,6 +25,11 @@ cp config.example.h src/config.h
 Puis renseignez Wi-Fi, MQTT et éventuellement `SONOS_SEED_IP`. `src/config.h` est
 git-ignoré.
 
+> **Ne déposez aucun identifiant ailleurs que dans `src/config.h`.** Les fichiers `*.env` sont
+> ignorés eux aussi, mais un fichier de secrets posé à la racine d'un dépôt public reste à un
+> `git add -A` de se retrouver publié — c'est arrivé sur ce projet. Si cela vous arrive :
+> changez le mot de passe concerné, le retrait du fichier ne suffit pas.
+
 ## Commandes
 
 ```bash

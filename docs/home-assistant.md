@@ -48,7 +48,8 @@ dans le firmware, pas de sondage, et l'écran est à jour dès le démarrage gr�
 `retain`.
 
 Installez [`homeassistant/weather_to_mqtt.yaml`](../homeassistant/weather_to_mqtt.yaml) comme
-automatisation, en adaptant l'entité météo. Elle publie toutes les 30 minutes, et au
+automatisation, en adaptant l'entité météo. Vérifié en production : payload publié et retenu,
+conforme à la fixture au caractère près. Elle publie toutes les 30 minutes, et au
 démarrage de Home Assistant, sur `reterminal_sonos/weather` :
 
 ```json
