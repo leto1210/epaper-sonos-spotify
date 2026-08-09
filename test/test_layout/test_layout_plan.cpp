@@ -12,8 +12,17 @@ namespace {
 // Approximation d'une FreeSans : environ 0,55 em par caractère. Suffisant pour
 // éprouver la politique de bascule, qui est ce qu'on teste ici — la mesure
 // exacte vient de TFT_eSPI sur la cible.
-int fakeMeasure(const std::string& text, int font_px) {
-  return static_cast<int>(text.size() * font_px * 0.55);
+int pixelsFor(layout::TitleStyle style) {
+  switch (style) {
+    case layout::TitleStyle::kHuge: return 66;
+    case layout::TitleStyle::kLarge: return 50;
+    case layout::TitleStyle::kMedium: return 33;
+  }
+  return 33;
+}
+
+int fakeMeasure(const std::string& text, layout::TitleStyle style) {
+  return static_cast<int>(text.size() * pixelsFor(style) * 0.55);
 }
 
 }  // namespace
@@ -24,7 +33,7 @@ void test_short_title_uses_large_typography() {
       layout::planTrack("Brain Stew", "Green Day", "Insomniac", fakeMeasure);
 
   TEST_ASSERT_EQUAL(layout::Variant::kTypography, plan.variant);
-  TEST_ASSERT_EQUAL_INT(56, plan.title_font_px);
+  TEST_ASSERT_EQUAL(layout::TitleStyle::kHuge, plan.title_style);
   TEST_ASSERT_EQUAL_UINT(1, plan.title_lines.size());
   TEST_ASSERT_EQUAL_STRING("Brain Stew", plan.title_lines[0].c_str());
   TEST_ASSERT_FALSE(plan.truncated);
@@ -47,7 +56,7 @@ void test_long_title_reduces_font_before_changing_layout() {
       fakeMeasure);
 
   TEST_ASSERT_EQUAL(layout::Variant::kTypography, plan.variant);
-  TEST_ASSERT_EQUAL_INT(44, plan.title_font_px);
+  TEST_ASSERT_EQUAL(layout::TitleStyle::kLarge, plan.title_style);
 }
 
 // Où se situe la bascule entre les deux dispositions ? Plutôt que de figer une
@@ -88,7 +97,7 @@ void test_very_long_title_falls_back_to_artwork_layout() {
       "Wolfgang Amadeus Mozart", "The Best of Mozart", fakeMeasure);
 
   TEST_ASSERT_EQUAL(layout::Variant::kArtwork, plan.variant);
-  TEST_ASSERT_EQUAL_INT(34, plan.title_font_px);
+  TEST_ASSERT_EQUAL(layout::TitleStyle::kMedium, plan.title_style);
   TEST_ASSERT_EQUAL_INT(360, plan.art_size_px);
   TEST_ASSERT_TRUE(plan.title_lines.size() <= 4);
 }
@@ -107,21 +116,21 @@ void test_absurd_title_is_truncated_visibly() {
 // Un mot unique plus large que la colonne doit être coupé, pas laissé déborder.
 void test_unbreakable_word_is_split() {
   std::vector<std::string> lines;
-  const bool fits = layout::wrapText(std::string(40, 'x'), 200, 4, 34, fakeMeasure, lines);
+  const bool fits = layout::wrapText(std::string(40, 'x'), 200, 4, layout::TitleStyle::kMedium, fakeMeasure, lines);
 
   TEST_ASSERT_TRUE(fits);
   TEST_ASSERT_TRUE(lines.size() > 1);
   for (const std::string& line : lines) {
-    TEST_ASSERT_TRUE(fakeMeasure(line, 34) <= 200);
+    TEST_ASSERT_TRUE(fakeMeasure(line, layout::TitleStyle::kMedium) <= 200);
   }
 }
 
 void test_wrap_keeps_words_intact_when_possible() {
   std::vector<std::string> lines;
-  layout::wrapText("un deux trois quatre cinq", 120, 5, 34, fakeMeasure, lines);
+  layout::wrapText("un deux trois quatre cinq", 120, 5, layout::TitleStyle::kMedium, fakeMeasure, lines);
 
   for (const std::string& line : lines) {
-    TEST_ASSERT_TRUE(fakeMeasure(line, 34) <= 120);
+    TEST_ASSERT_TRUE(fakeMeasure(line, layout::TitleStyle::kMedium) <= 120);
   }
   // Aucun mot ne doit avoir été coupé : ils tiennent tous.
   std::string rejoined;

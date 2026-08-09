@@ -16,21 +16,21 @@ constexpr int kArtworkTitleWidth = 330;
 // changer de disposition ; on ne tronque qu'en tout dernier recours.
 struct Step {
   Variant variant;
-  int font_px;
+  TitleStyle style;
   int max_lines;
   int width_px;
   int art_size_px;
 };
 
 constexpr Step kLadder[] = {
-    {Variant::kTypography, 56, 2, kTypographyTitleWidth, 200},
-    {Variant::kTypography, 44, 3, kTypographyTitleWidth, 200},
-    {Variant::kArtwork, 34, 4, kArtworkTitleWidth, 360},
+    {Variant::kTypography, TitleStyle::kHuge, 2, kTypographyTitleWidth, 200},
+    {Variant::kTypography, TitleStyle::kLarge, 3, kTypographyTitleWidth, 200},
+    {Variant::kArtwork, TitleStyle::kMedium, 4, kArtworkTitleWidth, 360},
 };
 
 }  // namespace
 
-bool wrapText(const std::string& text, int max_width_px, int max_lines, int font_px,
+bool wrapText(const std::string& text, int max_width_px, int max_lines, TitleStyle style,
               const Measure& measure, std::vector<std::string>& out) {
   out.clear();
   if (text.empty()) return true;
@@ -48,7 +48,7 @@ bool wrapText(const std::string& text, int max_width_px, int max_lines, int font
     if (word.empty()) continue;
 
     const std::string candidate = line.empty() ? word : line + " " + word;
-    if (measure(candidate, font_px) <= max_width_px) {
+    if (measure(candidate, style) <= max_width_px) {
       line = candidate;
       continue;
     }
@@ -61,11 +61,11 @@ bool wrapText(const std::string& text, int max_width_px, int max_lines, int font
 
     // Un mot seul plus large que la ligne : on le coupe en dur, sans quoi il
     // déborderait de l'écran. Cas réel avec certains titres sans espaces.
-    if (measure(word, font_px) > max_width_px) {
+    if (measure(word, style) > max_width_px) {
       std::string chunk;
       for (const char c : word) {
         const std::string extended = chunk + c;
-        if (measure(extended, font_px) > max_width_px && !chunk.empty()) {
+        if (measure(extended, style) > max_width_px && !chunk.empty()) {
           out.push_back(chunk);
           chunk.clear();
           if (static_cast<int>(out.size()) >= max_lines) return false;
@@ -90,11 +90,11 @@ TrackPlan planTrack(const std::string& title, const std::string& artist,
 
   for (const Step& step : kLadder) {
     std::vector<std::string> lines;
-    if (!wrapText(title, step.width_px, step.max_lines, step.font_px, measure, lines)) {
+    if (!wrapText(title, step.width_px, step.max_lines, step.style, measure, lines)) {
       continue;
     }
     plan.variant = step.variant;
-    plan.title_font_px = step.font_px;
+    plan.title_style = step.style;
     plan.art_size_px = step.art_size_px;
     plan.title_lines = lines;
     return plan;
@@ -104,11 +104,11 @@ TrackPlan planTrack(const std::string& title, const std::string& artist,
   // titre coupé qu'un titre qui déborde de l'écran.
   const Step& last = kLadder[sizeof(kLadder) / sizeof(kLadder[0]) - 1];
   plan.variant = last.variant;
-  plan.title_font_px = last.font_px;
+  plan.title_style = last.style;
   plan.art_size_px = last.art_size_px;
   plan.truncated = true;
 
-  wrapText(title, last.width_px, last.max_lines + 8, last.font_px, measure,
+  wrapText(title, last.width_px, last.max_lines + 8, last.style, measure,
            plan.title_lines);
   plan.title_lines.resize(last.max_lines);
   if (!plan.title_lines.empty()) plan.title_lines.back() += "...";

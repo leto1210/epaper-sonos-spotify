@@ -1,6 +1,5 @@
 // ePaper Spotify — afficheur Sonos sur reTerminal E1002.
-// Livraison 4 : topologie Sonos et choix de la zone. L'affichage du morceau
-// arrive à la livraison suivante.
+// Livraison 6 : affichage du morceau en cours. Pochettes et capteurs suivent.
 #include <Arduino.h>
 #include <WiFi.h>
 
@@ -28,7 +27,12 @@ const char* stateLabel(sonos::TransportState state) {
   return "inconnu";
 }
 
-void reportZones() {
+// Empreinte de ce qui est affiché. Un rafraîchissement coûte 37 s : on ne
+// redessine que si l'un de ces éléments change réellement.
+std::string g_shown_fingerprint;
+std::string g_last_zone;
+
+void pollAndRender() {
   std::vector<sonos::ZoneStatus> zones;
   const uint32_t started = millis();
 
@@ -44,26 +48,45 @@ void reportZones() {
                   stateLabel(zone.state));
   }
 
-  const sonos::Choice choice = sonos::pickZone(zones, kZonePriority);
+  const sonos::Choice choice = sonos::pickZone(zones, kZonePriority, g_last_zone);
   if (!choice.found) {
     Serial.println("[sonos] aucune zone a afficher");
     return;
   }
+  g_last_zone = choice.name;
 
   Serial.printf("[sonos] zone retenue : %s (%s), %s\n", choice.name.c_str(),
                 choice.ip.c_str(), choice.playing ? "en lecture" : "inactive");
 
   const sonos::TrackInfo track = sonos_client::fetchPositionInfo(choice.ip);
-  if (track.has_metadata) {
-    Serial.printf("[sonos] %s - %s [%s] %d/%d s\n", track.artist.c_str(),
-                  track.title.c_str(), track.album.c_str(), track.position_s,
-                  track.duration_s);
-    Serial.printf("[sonos] pochette : %s\n",
-                  sonos::albumArtUrl(choice.ip, track).c_str());
-  } else {
-    // Attendu en Spotify Connect dès que la lecture n'est pas active.
-    Serial.println("[sonos] pas de metadonnees pour cette zone");
+  if (!track.has_metadata) {
+    // Attendu en Spotify Connect dès que la lecture n'est pas active. On
+    // conserve la dernière fiche affichée plutôt que d'effacer l'écran.
+    Serial.println("[sonos] pas de metadonnees, ecran inchange");
+    return;
   }
+
+  Serial.printf("[sonos] %s - %s [%s] %d/%d s\n", track.artist.c_str(),
+                track.title.c_str(), track.album.c_str(), track.position_s,
+                track.duration_s);
+
+  const std::string fingerprint =
+      track.track_uri + "|" + track.title + "|" + choice.name +
+      (choice.playing ? "|1" : "|0");
+  if (fingerprint == g_shown_fingerprint) {
+    Serial.println("[ecran] inchange, pas de rafraichissement");
+    return;
+  }
+
+  display::Status status;
+  status.zone = choice.name;
+  status.playing = choice.playing;
+  // Capteurs et batterie arrivent à la livraison 9.
+  status.indoor_temperature_c = 0.0f;
+  status.indoor_humidity_pct = 0;
+
+  display::showTrack(track, status);
+  g_shown_fingerprint = fingerprint;
 }
 
 }  // namespace
@@ -79,13 +102,9 @@ void setup() {
   const bool online = wifi_mgr::connect();
   if (online) {
     wifi_mgr::syncTime();
-    reportZones();
+  } else {
+    display::showBootScreen("Wi-Fi indisponible");
   }
-
-  const std::string status =
-      online ? "Connecte : " + wifi_mgr::ip() + "  " + wifi_mgr::localTimeHHMM()
-             : "Wi-Fi indisponible";
-  display::showBootScreen(status.c_str());
 
   Serial.printf("[boot] termine, %lu rafraichissement(s)\n",
                 static_cast<unsigned long>(display::refreshCount()));
@@ -94,13 +113,20 @@ void setup() {
 void loop() {
   wifi_mgr::loop();
 
-  // Sondage périodique, sans toucher à l'écran : la livraison 5 branchera le
-  // rendu, une fois la détection de changement en place.
+  // Premier sondage immédiat, puis toutes les SONOS_POLL_INTERVAL_S secondes.
   static uint32_t last_poll_ms = 0;
+  static bool first_poll_done = false;
+  if (wifi_mgr::isConnected() && !first_poll_done) {
+    first_poll_done = true;
+    last_poll_ms = millis();
+    pollAndRender();
+    return;
+  }
+
   if (wifi_mgr::isConnected() &&
       millis() - last_poll_ms >= SONOS_POLL_INTERVAL_S * 1000UL) {
     last_poll_ms = millis();
-    reportZones();
+    pollAndRender();
   }
 
   delay(200);

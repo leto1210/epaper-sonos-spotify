@@ -19,9 +19,9 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
       → 8 zones et leurs coordinateurs en 350-500 ms, 10 tests sur la politique de choix
 - [x] **L5** — `GetPositionInfo` en direct
       → morceau réel lu sur cible, position et URL de pochette correctes
-- [ ] **L6** — Layout texte sur ePaper
-- [ ] **L7** — Anti-redraw + compteur de refresh
-      → 10 min sur le même morceau ⇒ compteur = 1
+- [x] **L6** — Layout texte sur ePaper (maquette C, repli A)
+- [x] **L7** — Anti-redraw + compteur de refresh
+      → validé sur cible : 1 rafraîchissement puis 4 sondages sans redraw
 - [ ] **L8** — Pochette : HTTP + JPEGDEC + tramage
 - [ ] **L9** — Capteurs SHT4x + batterie
 - [ ] **L10** — Boutons + buzzer (Next / Previous / Play-Pause)
