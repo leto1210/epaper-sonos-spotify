@@ -11,6 +11,7 @@
 #include "core/layout_plan.h"
 #include "core/zone_picker.h"
 #include "display.h"
+#include "sensors.h"
 #include "sonos_client.h"
 #include "wifi_mgr.h"
 
@@ -114,12 +115,17 @@ void pollAndRender() {
     Serial.println("[pochette] indisponible, emplacement de repli");
   }
 
+  const sensors::Reading measures = sensors::read();
+  Serial.printf("[capteurs] %.1f C  %d%%HR  accu %d mV (%d%%)%s\n",
+                measures.temperature_c, measures.humidity_pct, measures.battery_mv,
+                measures.battery_pct, measures.charging ? " en charge" : "");
+
   display::Status status;
   status.zone = choice.name;
   status.playing = choice.playing;
-  // Capteurs et batterie arrivent à la livraison 9.
-  status.indoor_temperature_c = 0.0f;
-  status.indoor_humidity_pct = 0;
+  status.indoor_temperature_c = measures.temperature_c;
+  status.indoor_humidity_pct = measures.has_climate ? measures.humidity_pct : 0;
+  status.battery_pct = measures.battery_pct;
 
   display::showTrack(track, status, art);
   g_shown_fingerprint = fingerprint;
@@ -134,6 +140,7 @@ void setup() {
   Serial.printf("[boot] PSRAM libre : %u octets\n", ESP.getFreePsram());
 
   display::begin();
+  sensors::begin();
 
   const bool online = wifi_mgr::connect();
   if (online) {

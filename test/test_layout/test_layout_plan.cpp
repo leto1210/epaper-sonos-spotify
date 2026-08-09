@@ -89,6 +89,18 @@ void test_layout_switch_boundary_is_reasonable() {
   TEST_ASSERT_EQUAL(layout::Variant::kArtwork, variantFor(boundary + 30));
 }
 
+// Relevé sur une photo de l'écran : « Breezeblocks » s'affichait
+// « Breezeblo / cks ». Un mot long doit faire descendre d'un cran plutôt que
+// d'être coupé en plein milieu — la coupure ne reste qu'un dernier recours.
+void test_long_word_lowers_the_style_instead_of_breaking() {
+  const layout::TrackPlan plan =
+      layout::planTrack("Breezeblocks", "alt-J", "An Awesome Wave", fakeMeasure);
+
+  TEST_ASSERT_EQUAL_UINT(1, plan.title_lines.size());
+  TEST_ASSERT_EQUAL_STRING("Breezeblocks", plan.title_lines[0].c_str());
+  TEST_ASSERT_FALSE(plan.truncated);
+}
+
 // Cas réel qui a motivé la disposition de repli : les titres de musique
 // classique, avec tonalité, numéro d'opus et mouvement.
 void test_very_long_title_falls_back_to_artwork_layout() {
@@ -157,6 +169,7 @@ int main(int, char**) {
   RUN_TEST(test_medium_title_wraps_to_two_lines);
   RUN_TEST(test_long_title_reduces_font_before_changing_layout);
   RUN_TEST(test_layout_switch_boundary_is_reasonable);
+  RUN_TEST(test_long_word_lowers_the_style_instead_of_breaking);
   RUN_TEST(test_very_long_title_falls_back_to_artwork_layout);
   RUN_TEST(test_absurd_title_is_truncated_visibly);
   RUN_TEST(test_unbreakable_word_is_split);

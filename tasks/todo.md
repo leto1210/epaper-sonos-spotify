@@ -24,7 +24,8 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
       → validé sur cible : 1 rafraîchissement puis 4 sondages sans redraw
 - [x] **L8** — Pochette : HTTP + JPEGDEC + tramage
       → 640x640 téléchargée, décodée et tramée en 1,0 s ; 8 tests sur le tramage
-- [ ] **L9** — Capteurs SHT4x + batterie
+- [x] **L9** — Capteurs SHT4x + batterie
+      → 30,7 °C / 36 %HR / 4150 mV lus sur cible, 5 tests sur la conversion
 - [ ] **L10** — Boutons + buzzer (Next / Previous / Play-Pause)
       → 4 appuis rapides ⇒ un seul refresh
 - [ ] **L11** — MQTT + Home Assistant Discovery

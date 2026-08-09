@@ -28,6 +28,21 @@ constexpr Step kLadder[] = {
     {Variant::kArtwork, TitleStyle::kMedium, 4, kArtworkTitleWidth, 360},
 };
 
+// Le mot le plus large tient-il dans la colonne ? Si non, l'habillage devra le
+// couper en plein milieu, ce qui se voit immédiatement à l'écran.
+bool everyWordFits(const std::string& text, int max_width_px, TitleStyle style,
+                   const Measure& measure) {
+  size_t index = 0;
+  while (index < text.size()) {
+    size_t space = text.find(' ', index);
+    if (space == std::string::npos) space = text.size();
+    const std::string word = text.substr(index, space - index);
+    index = space < text.size() ? space + 1 : text.size();
+    if (!word.empty() && measure(word, style) > max_width_px) return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 bool wrapText(const std::string& text, int max_width_px, int max_lines, TitleStyle style,
@@ -88,16 +103,25 @@ TrackPlan planTrack(const std::string& title, const std::string& artist,
   plan.artist = artist;
   plan.album = album;
 
-  for (const Step& step : kLadder) {
-    std::vector<std::string> lines;
-    if (!wrapText(title, step.width_px, step.max_lines, step.style, measure, lines)) {
-      continue;
+  // Deux passes sur l'échelle. La première exige que chaque mot tienne entier :
+  // un titre comme « Breezeblocks » coupé en « Breezeblo / cks » se lit très
+  // mal, et il suffit souvent de descendre d'un cran pour l'éviter. La seconde
+  // accepte la coupure, pour les mots qui ne tiennent à aucune taille.
+  for (const bool whole_words_only : {true, false}) {
+    for (const Step& step : kLadder) {
+      if (whole_words_only && !everyWordFits(title, step.width_px, step.style, measure)) {
+        continue;
+      }
+      std::vector<std::string> lines;
+      if (!wrapText(title, step.width_px, step.max_lines, step.style, measure, lines)) {
+        continue;
+      }
+      plan.variant = step.variant;
+      plan.title_style = step.style;
+      plan.art_size_px = step.art_size_px;
+      plan.title_lines = lines;
+      return plan;
     }
-    plan.variant = step.variant;
-    plan.title_style = step.style;
-    plan.art_size_px = step.art_size_px;
-    plan.title_lines = lines;
-    return plan;
   }
 
   // Aucun palier ne suffit : on garde le dernier et on tronque. Mieux vaut un
