@@ -8,10 +8,14 @@
 #define WIFI_PASSWORD "mon-mot-de-passe"
 
 // --- Sonos ------------------------------------------------------------------
-// Laissez vide pour utiliser la découverte SSDP automatique. Renseignez l'IP
-// d'une enceinte si le SSDP ne passe pas (VLAN, Wi-Fi avec isolation client) :
-// n'importe quelle enceinte suffit, la topologie complète en découle.
-#define SONOS_SEED_IP ""
+// IP d'une enceinte, n'importe laquelle : la topologie complète (toutes les
+// zones, leurs IP et leurs coordinateurs) s'en déduit par SOAP.
+//
+// Renseignez-la dès que le boîtier et les enceintes ne sont pas sur le même
+// VLAN — cas courant quand le boîtier est sur un SSID « objets connectés » :
+// la découverte SSDP repose sur du multicast, qui ne franchit pas un routeur.
+// Laissez vide uniquement si tout le monde est sur le même sous-réseau.
+#define SONOS_SEED_IP "192.168.1.50"
 
 // Ordre de préférence quand plusieurs zones jouent en même temps.
 // Utilisez les noms exacts affichés dans l'app Sonos.

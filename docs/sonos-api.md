@@ -18,9 +18,16 @@ MX: 1
 ST: urn:schemas-upnp-org:device:ZonePlayer:1
 ```
 
-Chaque enceinte répond avec un en-tête `LOCATION` contenant son IP. Si le multicast ne passe
-pas (VLAN, isolation client Wi-Fi), renseignez `SONOS_SEED_IP` : une seule enceinte suffit,
-la topologie complète s'obtient ensuite par SOAP.
+Chaque enceinte répond avec un en-tête `LOCATION` contenant son IP.
+
+> **Le multicast ne franchit pas un routeur.** Si le boîtier est sur un SSID « objets
+> connectés » placé sur un VLAN distinct de celui des enceintes — configuration courante, et
+> celle du montage de référence — la découverte SSDP ne renverra jamais rien. Renseignez
+> alors `SONOS_SEED_IP` : **une seule** enceinte suffit, la topologie complète (toutes les
+> zones, leurs IP, leurs coordinateurs) se déduit ensuite par SOAP depuis celle-ci.
+>
+> Dans cette configuration, le seul flux à autoriser est **TCP 1400** du boîtier vers le
+> sous-réseau des enceintes — il porte à la fois l'API et les pochettes.
 
 ## Topologie et coordinateur de groupe
 

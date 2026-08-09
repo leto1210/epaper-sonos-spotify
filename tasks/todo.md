@@ -7,8 +7,8 @@ test de la précédente ne passe pas.
       → `pio test -e native` passe, `pio run` compile
 - [x] **L1** — Hello World ePaper
       → flashé sur cible : 800x480 initialisé, 1 seul rafraîchissement, 37,3 s
-- [ ] **L2** — Wi-Fi + NTP
-      → IP et heure correctes en série, reconnexion après coupure
+- [x] **L2** — Wi-Fi + NTP
+      → IP obtenue en 1,3 s, heure NTP correcte, test TCP de joignabilité intégré
 - [x] **L3** — Fixtures Sonos + parseur DIDL-Lite
       → 8 tests unitaires au vert sur 5 captures réelles anonymisées
 - [ ] **L4** — SSDP + choix du coordinateur
@@ -65,3 +65,17 @@ la console restait muette alors que le ROM, lui, parlait bien. Corrigé en passa
 
 Rafraîchissement mesuré : **37,3 s** pour un écran complet, au-dessus des 25-30 s annoncés
 par Seeed. La politique anti-redraw n'en est que plus justifiée.
+
+### L2
+Le LDF ne propage pas les bibliothèques intégrées au core vers les bibliothèques tierces :
+`SPI.h` manquait à Adafruit BusIO, `Network.h` à `WiFi` (scindée depuis le core Arduino 3.x).
+Ni `lib_ldf_mode = deep+` ni l'ajout dans `lib_deps` n'y suffisent — les chemins sont
+désormais donnés explicitement via `$PROJECT_PACKAGES_DIR`.
+
+**Contrainte réseau découverte à l'exécution** : le boîtier obtient une adresse sur le VLAN
+« objets connectés » (192.168.110.x) alors que les enceintes sont sur un autre sous-réseau.
+Le test TCP ajouté au démarrage l'a montré immédiatement plutôt qu'à travers un délai
+d'attente inexpliqué au premier sondage. Home Assistant, lui, est du bon côté : l'intégration
+MQTT et la météo ne demandent aucune ouverture. Il reste à autoriser **TCP 1400** vers les
+enceintes ; la découverte SSDP, en multicast, ne franchira de toute façon jamais le routeur,
+d'où le passage de `SONOS_SEED_IP` du statut de repli à celui de mode nominal.

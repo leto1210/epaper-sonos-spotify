@@ -55,8 +55,10 @@ Détails de compilation, génération de `driver.h` et dépannage : [docs/build.
   rafraîchissement partiel en couleur : la barre de progression est figée à l'instant du
   rendu, elle n'avance pas en continu.
 - Sonos S2 uniquement (l'API UPnP locale de S1 diffère et n'est pas testée).
-- La découverte SSDP suppose que le boîtier et les enceintes sont sur le même sous-réseau
-  sans isolation client. À défaut, renseignez `SONOS_SEED_IP` dans `src/config.h`.
+- La découverte SSDP repose sur du multicast : elle ne fonctionne que si le boîtier et les
+  enceintes partagent le même sous-réseau. Si le boîtier est sur un VLAN « objets
+  connectés », renseignez `SONOS_SEED_IP` dans `src/config.h` et autorisez le flux **TCP
+  1400** vers les enceintes. Voir [docs/sonos-api.md](docs/sonos-api.md).
 
 ## Crédits
 
