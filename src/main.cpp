@@ -382,6 +382,17 @@ void setup() {
                   static_cast<unsigned long>(g_rtc_refresh_count));
   }
 
+  // Abaisser la fréquence du processeur à 80 MHz a été essayé et abandonné :
+  // le rafraîchissement passait de 37,3 s à 41,0 s, mesuré sur cible. Or c'est
+  // le panneau qui consomme pendant un redessin, et il restait alimenté 3,7 s
+  // de plus — l'économie sur le processeur se payait sur le poste le plus
+  // coûteux. Voir docs/hardware.md.
+
+  // La LED de façade est inversée : sans consigne explicite, rien ne garantit
+  // son état. Elle n'a aucun rôle ici, l'écran dit tout.
+  pinMode(6, OUTPUT);
+  digitalWrite(6, HIGH);
+
   display::begin();
   display::restoreRefreshCount(g_rtc_refresh_count);
   sensors::begin();

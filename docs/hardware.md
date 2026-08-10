@@ -79,6 +79,35 @@ barres pleines, faute d'un gris que le panneau n'a pas.
 
 Le défaut ne se voit sur aucun aperçu : il faut photographier le panneau.
 
+## Consommation : où passe le watt
+
+Mesuré à la prise USB : **environ 1 W**, soit ~200 mA sous 5 V. C'est cohérent avec un
+ESP32-S3 dont la radio Wi-Fi est associée, et sans commune mesure avec le deep sleep, qui se
+compte en microampères. Autrement dit, ce watt est celui de l'**état éveillé**, pas du
+sommeil.
+
+Le firmware ne dort que lorsque **rien n'a joué pendant dix minutes**. Tant que la musique
+tourne, le Wi-Fi reste allumé en permanence : c'est le régime nominal d'un afficheur branché,
+et le poste de consommation dominant. Sur la batterie de 2000 mAh (~7,4 Wh), cela donne un
+ordre de grandeur de **sept heures** — l'appareil est pensé pour rester alimenté.
+
+Deux pistes ont été écartées après essai, et une reste ouverte :
+
+- **Abaisser la fréquence du processeur à 80 MHz** : abandonné. Le rafraîchissement passait
+  de 37,3 s à 41,0 s. Or c'est le panneau qui consomme pendant un redessin ; il restait
+  alimenté 3,7 s de plus, et l'économie sur le processeur se payait sur le poste le plus
+  coûteux.
+- **Mettre le panneau en veille** : déjà fait par `Seeed_GFX`, qui appelle `EPD_SLEEP()` à la
+  fin de chaque mise à jour.
+- **Dormir aussi entre deux sondages pendant la lecture** : c'est le seul vrai levier. L'image
+  d'un ePaper est bistable, elle survit au sommeil. Il faudrait accepter un réveil Wi-Fi par
+  sondage (~1,7 s) et faire réveiller les trois boutons par `ext1` au lieu du seul GPIO4.
+  Non implémenté.
+
+Attention à la méthode de mesure : ouvrir le port série **réinitialise l'ESP32** par DTR/RTS.
+Un boîtier observé à la console est donc un boîtier qui vient de redémarrer, et qui réclame
+dix nouvelles minutes d'inactivité avant de se rendormir.
+
 ## Sources
 
 - [Wiki Seeed — Getting started reTerminal E1002](https://wiki.seeedstudio.com/getting_started_with_reterminal_e1002/)
