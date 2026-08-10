@@ -11,14 +11,19 @@ Le boîtier ne sera pas branché : tout ce qui suit se fait au clavier, avec
 État au 9 août 2026 au soir : **L0 à L13 terminées et validées sur cible**, 81 tests au vert,
 huit commits locaux **non poussés** (`git log origin/main..main`).
 
+**État actuel (10 août, après L14) :** L14 complétée hors matériel — 91 tests, machine à états
+pure testée offline. L15 en cours : documentation mise à jour (architecture, README), en
+attente des photos et captures HA.
+
 Il reste :
 
-1. **L14 — veille et deep sleep.** La part hors ligne est la machine à états : quand
-   s'endormir, pour combien de temps, ce qui réveille. À écrire dans `src/core/`, sur le
-   modèle de `core/pause_timer` — une horloge, un état, aucune dépendance Arduino. La
-   consommation et le réveil par GPIO4 exigeront le boîtier.
-2. **L15 — finition.** Photo du panneau au mur (`docs/images/device.jpg`, référencée par un
-   TODO dans le README), capture des entités Home Assistant, schéma d'architecture.
+1. **L15 — finition.** Photo du panneau au mur (`docs/images/device.jpg`, attendue pour
+   compléter le README), capture des neuf entités Home Assistant. Le schéma d'architecture
+   a été mis à jour pour inclure SLEEP et les détails du 10-minute seuil + 60 s tranches.
+   
+2. **Validation matériel de L14 et L15.** Deep sleep — power draw, GPIO4 interrupt, 60 s
+   timer. Photos et captures HA ne peuvent être produites que sur le boîtier réel ou une
+   instance Home Assistant en fonctionnement.
 
 Deux points à ne pas oublier :
 
@@ -65,10 +70,34 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
 - [x] **L13** — Météo : abonnement MQTT + parsing + automatisation HA
       → validé sur cible : écran météo affiché quand plus aucune zone ne sait ce
         qu'elle joue, puis stable ; 11 tests
-- [ ] **L14** — Écran de veille + deep sleep
-- [ ] **L15** — Finition doc : photos, captures HA, schéma
+- [x] **L14** — Veille et deep sleep
+      → `pio test -e native` au vert (10 nouveaux tests + 81 existants), intégration
+        dans main.cpp avec esp_deep_sleep() ; 91/91 tests ; validation matériel en suspens
+- [ ] **L15** — Finition doc : photos, captures HA, architecture mise à jour
 
 ## Revue
+
+### L14 (hors ligne, sans matériel)
+Machine à états pure (aucune dépendance Arduino) : quand s'endormir, pour combien de temps,
+ce qui réveille. Suivant le modèle de `core/pause_timer`, tous les états et transitions
+se testent sur le Mac sans le boîtier.
+
+**Seuils et tranches :**
+- Inactivité : 10 minutes sans rien qui joue → entrée en sommeil
+- Tranches : 60 secondes par réveil de timer
+- Réveil : par timer (60 s) ou immédiatement si appui de bouton (GPIO4)
+
+**Intégration :** `SleepManager` appelé depuis la boucle principale avant tout sondage.
+Si `should_sleep` est vrai, la boucle invoque `esp_deep_sleep()` avec timer et GPIO4 comme
+sources de réveil. Un réveil par timer redéclenche un sondage complet (jamais un rendu
+direct) — sinon l'écran afficherait une fiche obsolète de 60 secondes.
+
+**Tests :** 10 nouveaux tests couvrent les transitions, l'inactivité, les deux modes de
+réveil, et le débordement de `millis()` au bout de 49 jours. Un seul point manqué au premier
+passage (re-entrée en sommeil après réveil sur timer) — corrigé dans `inactive_since_ms_`
+en le réinitialisant à la date de réveil plutôt qu'à 0.
+
+**Validation matériel en suspens :** consommation en deep sleep, GPIO4 interrupt, durée réelle.
 
 ### L13 (partielle, sans matériel)
 L'écran météo prend la place du morceau quand plus aucune zone ne sait ce qu'elle joue —

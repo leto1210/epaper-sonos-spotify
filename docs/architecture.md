@@ -40,7 +40,11 @@ BOOT ──> WIFI ──> DISCOVER ──> POLL ──┬──> RENDER ──�
 - **POLL** — toutes les 20 s, `GetTransportInfo` puis `GetPositionInfo` sur le coordinateur.
 - **RENDER** — téléchargement de la pochette, décodage JPEG en PSRAM, tramage vers les
   6 couleurs, composition, un unique refresh.
-- **SLEEP** — deep sleep par tranches de 60 s, réveil par timer ou par le bouton GPIO4.
+- **SLEEP** — deep sleep par tranches de 60 s quand rien ne joue depuis 10 minutes.
+  Réveil par timer (60 s) ou par GPIO4 (appui de bouton). La transition de SLEEP vers
+  POLL redéclenche un sondage complet — le boîtier ne passe jamais en RENDER depuis le
+  réveil, sinon il afficherait une fiche obsolète. Cette garde empêche aussi un
+  rafraîchissement coûteux à chaque réveil de timer.
 
 ## Sélection de la zone affichée
 
@@ -85,10 +89,12 @@ une nouvelle écoute.
 
 Home Assistant, lui, continue de recevoir le morceau : seul l'affichage change.
 
-Le buzzer bippe **immédiatement** à l'appui : avec 25 s de latence d'affichage, c'est le
-seul retour utilisateur possible. Les appuis rapprochés sont coalescés — on ne lance le
-rendu qu'après 1,5 s sans nouvel appui, pour n'avoir qu'un seul refresh.
+## Entrée en deep sleep
 
-GPIO4 sert aussi de broche de réveil. Le sommeil ne survient que lorsque rien ne joue, où
-« morceau suivant » n'aurait pas de sens : un réveil par bouton déclenche donc un
-re-sondage et un redraw, jamais un saut de piste.
+Une fois l'écran météo affiché (c'est-à-dire, rien ne joue), le boîtier compte l'inactivité.
+Au-delà de 10 minutes sans activité musicale, il entre en deep sleep par tranches de 60 s.
+Un sondage s'effectue à chaque réveil du timer. L'appui d'un bouton réveille le boîtier
+immédiatement — c'est le seul retour utilisateur disponible en sommeil.
+
+La consommation en deep sleep doit être mesurée sur le matériel : voir
+[docs/hardware.md](hardware.md).

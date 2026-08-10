@@ -6,7 +6,7 @@ Affiche le morceau Spotify joué sur vos enceintes Sonos, sur un ePaper couleur 
 **100 % en local**. Pas de cloud, pas de compte développeur Spotify, pas d'API Sonos en
 ligne : le boîtier interroge directement vos enceintes sur le réseau local.
 
-<!-- TODO(L14) : photo du device au mur -> docs/images/device.jpg -->
+![ePaper Spotify display on wall](docs/images/device.jpg)
 
 ## Fonctionnalités
 
