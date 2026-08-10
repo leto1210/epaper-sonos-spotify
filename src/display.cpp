@@ -561,4 +561,8 @@ uint32_t refreshCount() {
   return g_refresh_count;
 }
 
+void restoreRefreshCount(uint32_t count) {
+  g_refresh_count = count;
+}
+
 }  // namespace display

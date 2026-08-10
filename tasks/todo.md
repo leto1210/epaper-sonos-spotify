@@ -146,6 +146,40 @@ justement dans cet ordre.
 Le README pointait aussi vers `docs/images/device.jpg`, qui n'existe pas encore : image
 cassée sur la page d'accueil d'un dépôt public. Remis en commentaire jusqu'à la photo.
 
+### L14 sur cible : trois défauts, aucun visible hors matériel
+
+La machine à états était juste et ses tests passaient ; c'est son **intégration** qui ne
+tenait pas. Trois défauts, trouvés en relisant le code avant l'essai puis en observant le
+boîtier :
+
+1. **Le boîtier ne s'endormait jamais.** `anything_playing` se déduisait de `g_last_zone`,
+   qui garde la dernière zone connue pour les boutons et n'est jamais vidé. Dès le premier
+   morceau trouvé, le firmware se croyait en lecture pour toujours. Un drapeau distinct est
+   désormais réévalué à chaque sondage — et une zone *en pause* ne joue pas.
+2. **Un rafraîchissement de 37 s à chaque réveil.** Le deep sleep repasse par `setup()` :
+   l'empreinte anti-redraw repartait vide. Elle est conservée en mémoire RTC sous forme de
+   condensé FNV-1a, avec le compteur de rafraîchissements. Une collision de condensé
+   coûterait un rafraîchissement manqué, jamais un affichage faux.
+3. **Dix minutes éveillé pour une minute de sommeil.** `SleepManager` perdait aussi son
+   compteur d'inactivité au réveil et réclamait un nouveau délai complet.
+   `resumeAfterWake()` l'antidate après un réveil par minuterie ; deux tests le couvrent.
+
+La décision de veille a par ailleurs été déplacée **après** le sondage : placée avant, elle
+rendormait le boîtier sans qu'il ait jamais interrogé Sonos.
+
+Cycle observé sur cible :
+
+```
+[veille] deep sleep pour 60000 ms
+[boot] ePaper Spotify 0.1.0
+[veille] reveil par minuterie, 3 rafraichissement(s) deja compte(s)
+[ecran] inchange, pas de rafraichissement
+[veille] deep sleep pour 60000 ms
+```
+
+Home Assistant reste disponible d'un réveil à l'autre et conserve son compteur à 3. Restent
+à mesurer la **consommation réelle** et à vérifier le **réveil par GPIO4**.
+
 ### L14 (hors ligne, sans matériel)
 Machine à états pure (aucune dépendance Arduino) : quand s'endormir, pour combien de temps,
 ce qui réveille. Suivant le modèle de `core/pause_timer`, tous les états et transitions

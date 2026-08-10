@@ -90,6 +90,26 @@ une nouvelle écoute.
 
 Home Assistant, lui, continue de recevoir le morceau : seul l'affichage change.
 
+## Ce que le deep sleep efface, et ce qu'il faut sauver
+
+Sur l'ESP32, un réveil de deep sleep ne reprend pas où l'on s'était arrêté : il repasse par
+`setup()`, avec toutes les variables réinitialisées. Deux conséquences, l'une et l'autre
+constatées sur le matériel :
+
+- **L'empreinte anti-redraw était perdue.** Chaque réveil repartait avec un écran réputé
+  vierge et redessinait : un rafraîchissement de 37 s toutes les minutes, exactement ce que
+  la veille est censée éviter. Elle est désormais conservée sous forme de condensé dans la
+  mémoire RTC (`RTC_DATA_ATTR`), qui reste alimentée pendant le sommeil, avec le compteur de
+  rafraîchissements — sans quoi celui-ci retombait à zéro dans Home Assistant à chaque
+  réveil.
+- **Le compteur d'inactivité aussi.** `SleepManager` réclamait donc dix nouvelles minutes
+  avant de se rendormir : le boîtier serait resté éveillé dix minutes pour une minute de
+  sommeil. `resumeAfterWake()` antidate l'inactivité après un réveil par minuterie, si bien
+  que le sommeil reprend dès le sondage terminé.
+
+Le cycle mesuré est alors : réveil, Wi-Fi, sondage, aucun redessin, rendormissement — soit
+quelques secondes éveillé par minute.
+
 ## Entrée en deep sleep
 
 Une fois l'écran météo affiché (c'est-à-dire, rien ne joue), le boîtier compte l'inactivité.

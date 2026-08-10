@@ -37,7 +37,33 @@ const char* stateLabel(sonos::TransportState state) {
 
 // Empreinte de ce qui est affiché. Un rafraîchissement coûte 37 s : on ne
 // redessine que si l'un de ces éléments change réellement.
-std::string g_shown_fingerprint;
+//
+// Elle est conservée sous forme de condensé dans la mémoire RTC, qui reste
+// alimentée pendant le deep sleep. Sans cela, chaque réveil repartirait de
+// `setup()` avec une empreinte vide et redessinerait l'écran : un
+// rafraîchissement de 37 s toutes les minutes, exactement ce que la veille est
+// censée éviter. Le compteur de rafraîchissements y est joint, sans quoi il
+// repartirait de zéro dans Home Assistant à chaque réveil.
+RTC_DATA_ATTR uint32_t g_rtc_shown_hash = 0;
+RTC_DATA_ATTR uint32_t g_rtc_refresh_count = 0;
+
+// FNV-1a : quelques lignes, une répartition suffisante pour comparer des
+// empreintes. Une collision se traduirait par un rafraîchissement manquant,
+// jamais par un affichage faux.
+uint32_t fingerprintHash(const std::string& text) {
+  uint32_t hash = 2166136261u;
+  for (const char c : text) {
+    hash ^= static_cast<uint8_t>(c);
+    hash *= 16777619u;
+  }
+  // Zéro sert de « rien n'a encore été affiché » : on l'évite comme valeur.
+  return hash == 0 ? 1 : hash;
+}
+
+bool alreadyShown(const std::string& fingerprint) {
+  return g_rtc_shown_hash == fingerprintHash(fingerprint);
+}
+
 std::string g_last_zone;
 
 // Coordinateur de la zone affichée : c'est à lui, et à lui seul, que les
@@ -53,6 +79,12 @@ std::string g_forced_zone = ha::kAutoZone;
 idle::PauseTimer g_pause_timer;
 
 power::SleepManager g_sleep_manager;
+
+// Vrai quand la zone retenue joue vraiment. Réévalué à *chaque* sondage : il
+// était auparavant déduit de `g_last_zone`, qui garde la dernière zone connue
+// pour les boutons et n'est jamais vidé — le boîtier se croyait donc en lecture
+// pour toujours dès le premier morceau trouvé, et ne s'endormait jamais.
+bool g_anything_playing = false;
 
 // Horodatage du dernier rafraîchissement, au format attendu par Home Assistant
 // (`device_class: timestamp`). Vide tant que l'heure n'a pas été synchronisée :
@@ -133,7 +165,7 @@ void sendTransport(buttons::Action action) {
     }
     case buttons::Action::kForceRedraw:
       // Oublier l'empreinte suffit : le prochain rendu se fera sans condition.
-      g_shown_fingerprint.clear();
+      g_rtc_shown_hash = 0;
       Serial.println("[boutons] redessin force");
       break;
     case buttons::Action::kNone:
@@ -160,7 +192,7 @@ void onHomeAssistantCommand(const ha::Command& command) {
   }
 
   // Oublier l'empreinte suffit à rendre le prochain rendu inconditionnel.
-  g_shown_fingerprint.clear();
+  g_rtc_shown_hash = 0;
   g_pending_render = true;
 }
 
@@ -178,7 +210,7 @@ void renderWeather() {
   for (const weather::Column& column : view.columns) {
     fingerprint += "|" + column.hour + column.temperature;
   }
-  if (fingerprint == g_shown_fingerprint) return;
+  if (alreadyShown(fingerprint)) return;
 
   display::Status status;
   status.indoor_temperature_c = measures.temperature_c;
@@ -186,7 +218,8 @@ void renderWeather() {
   status.battery_pct = measures.battery_pct;
 
   display::showWeather(view, status);
-  g_shown_fingerprint = fingerprint;
+  g_rtc_shown_hash = fingerprintHash(fingerprint);
+  g_rtc_refresh_count = display::refreshCount();
   g_last_refresh_iso = nowIso8601();
   publishMeasurements(measures);
 }
@@ -225,6 +258,7 @@ void pollAndRender() {
 
   if (ranked.empty()) {
     Serial.println("[sonos] aucune zone a afficher, ecran meteo");
+    g_anything_playing = false;
     renderWeather();
     return;
   }
@@ -251,9 +285,14 @@ void pollAndRender() {
     // Aucune zone ne sait quoi que ce soit : la télévision, une entrée ligne ou
     // simplement le silence. L'écran passe à la météo.
     Serial.println("[sonos] aucune metadonnee nulle part, ecran meteo");
+    g_anything_playing = false;
     renderWeather();
     return;
   }
+
+  // Une zone en pause ne joue pas : c'est bien ce qui doit lancer le compte à
+  // rebours de la veille.
+  g_anything_playing = choice.playing;
   g_last_zone = choice.name;
   g_last_ip = choice.ip;
 
@@ -290,7 +329,7 @@ void pollAndRender() {
   const std::string fingerprint =
       track.track_uri + "|" + track.title + "|" + choice.name +
       (choice.playing ? "|1" : "|0");
-  if (fingerprint == g_shown_fingerprint) {
+  if (alreadyShown(fingerprint)) {
     Serial.println("[ecran] inchange, pas de rafraichissement");
     return;
   }
@@ -320,7 +359,8 @@ void pollAndRender() {
   status.battery_pct = measures.battery_pct;
 
   display::showTrack(track, status, art);
-  g_shown_fingerprint = fingerprint;
+  g_rtc_shown_hash = fingerprintHash(fingerprint);
+  g_rtc_refresh_count = display::refreshCount();
   g_last_refresh_iso = nowIso8601();
   publishMeasurements(measures);
 }
@@ -333,7 +373,17 @@ void setup() {
   Serial.printf("\n[boot] ePaper Spotify %s\n", epaper_spotify::kFirmwareVersion);
   Serial.printf("[boot] PSRAM libre : %u octets\n", ESP.getFreePsram());
 
+  // Un réveil de deep sleep repasse par ici : ce qui a survécu dans la mémoire
+  // RTC évite de tout recommencer à zéro.
+  const esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
+  if (wakeup != ESP_SLEEP_WAKEUP_UNDEFINED) {
+    Serial.printf("[veille] reveil par %s, %lu rafraichissement(s) deja compte(s)\n",
+                  wakeup == ESP_SLEEP_WAKEUP_EXT0 ? "bouton" : "minuterie",
+                  static_cast<unsigned long>(g_rtc_refresh_count));
+  }
+
   display::begin();
+  display::restoreRefreshCount(g_rtc_refresh_count);
   sensors::begin();
   buttons_io::begin();
   mqtt::begin(onHomeAssistantCommand);
@@ -369,28 +419,6 @@ void loop() {
   static uint32_t last_poll_ms = 0;
   static bool first_poll_done = false;
 
-  // Vérifier la décision de sommeil avant tout sondage. L'inactivité se compte
-  // quand rien ne joue; un appui de bouton réveille ou réinitialise le compteur.
-  // `anything_playing` est vrai si au moins une zone sait ce qu'elle joue.
-  const bool anything_playing = !g_last_zone.empty() && !g_last_ip.empty();
-  const bool user_activity_recent =
-      (millis() - g_last_button_press_ms) < 2000UL;
-  const power::Decision sleep_decision =
-      g_sleep_manager.updateAndDecide(millis(), anything_playing, user_activity_recent);
-
-  if (sleep_decision.should_sleep && wifi_mgr::isConnected()) {
-    Serial.printf("[sleep] entree en deep sleep pour %u ms\n",
-                  sleep_decision.duration_ms);
-    // GPIO4 actif bas : c'est aussi le bouton « suivant », mais un réveil ne
-    // saute jamais de morceau — il déclenche un sondage complet.
-    esp_sleep_enable_ext0_wakeup(GPIO_NUM_4, 0);
-
-    // `esp_deep_sleep` arme lui-même le réveil par timer à partir de la durée
-    // qu'on lui passe, en microsecondes. Elle ne revient jamais.
-    Serial.flush();
-    esp_deep_sleep(static_cast<uint64_t>(sleep_decision.duration_ms) * 1000ULL);
-  }
-
   // Demande venue de Home Assistant, traitée hors de la fonction de rappel MQTT.
   if (g_pending_render && wifi_mgr::isConnected()) {
     g_pending_render = false;
@@ -419,6 +447,13 @@ void loop() {
     first_poll_done = true;
     last_poll_ms = millis();
     pollAndRender();
+
+    // Réveil par la minuterie : le sondage vient d'avoir lieu, l'écran est à
+    // jour. Si rien ne joue toujours, on se rendort sans attendre un nouveau
+    // compte à rebours de dix minutes.
+    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
+      g_sleep_manager.resumeAfterWake(millis());
+    }
     return;
   }
 
@@ -426,6 +461,27 @@ void loop() {
       millis() - last_poll_ms >= SONOS_POLL_INTERVAL_S * 1000UL) {
     last_poll_ms = millis();
     pollAndRender();
+  }
+
+  // La veille se décide en fin de cycle, une fois le sondage fait : la placer
+  // avant aurait rendormi le boîtier sans qu'il ait jamais interrogé Sonos.
+  if (first_poll_done) {
+    const bool user_activity_recent = (millis() - g_last_button_press_ms) < 2000UL;
+    const power::Decision decision =
+        g_sleep_manager.updateAndDecide(millis(), g_anything_playing, user_activity_recent);
+
+    if (decision.should_sleep) {
+      Serial.printf("[veille] deep sleep pour %lu ms\n",
+                    static_cast<unsigned long>(decision.duration_ms));
+      // GPIO4 actif bas : c'est aussi le bouton « suivant », mais un réveil ne
+      // saute jamais de morceau — il déclenche un sondage complet.
+      esp_sleep_enable_ext0_wakeup(GPIO_NUM_4, 0);
+
+      // `esp_deep_sleep` arme lui-même le réveil par minuterie à partir de la
+      // durée qu'on lui passe, en microsecondes. Elle ne revient jamais.
+      Serial.flush();
+      esp_deep_sleep(static_cast<uint64_t>(decision.duration_ms) * 1000ULL);
+    }
   }
 
   // 10 ms : il faut échantillonner nettement plus vite que l'anti-rebond de

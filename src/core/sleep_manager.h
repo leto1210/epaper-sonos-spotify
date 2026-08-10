@@ -38,6 +38,15 @@ class SleepManager {
       bool anything_playing,
       bool user_activity_recent);
 
+  // À appeler après un réveil de deep sleep, une fois le sondage effectué.
+  //
+  // Le deep sleep repasse par `setup()` : l'objet est reconstruit et a tout
+  // oublié. Sans cette reprise, le boîtier réclamerait dix nouvelles minutes
+  // d'inactivité avant de se rendormir — il resterait éveillé dix minutes pour
+  // une minute de sommeil, l'inverse de ce qu'on cherche. Ici, l'inactivité est
+  // réputée déjà écoulée : si rien ne joue, le sommeil reprend aussitôt.
+  void resumeAfterWake(uint32_t now_ms);
+
   void reset();
 
  private:

@@ -2,6 +2,15 @@
 
 namespace power {
 
+void SleepManager::resumeAfterWake(uint32_t now_ms) {
+  // Antidater le début de l'inactivité revient à dire « le compte à rebours est
+  // déjà écoulé ». L'arithmétique modulaire de `uint32_t` rend la soustraction
+  // correcte même quand `millis()` vaut moins que le seuil, ce qui est le cas
+  // dans les secondes qui suivent un réveil.
+  inactive_since_ms_ = now_ms - kInactivityThresholdMs;
+  wake_at_ms_ = 0;
+}
+
 void SleepManager::reset() {
   inactive_since_ms_ = 0;
   wake_at_ms_ = 0;

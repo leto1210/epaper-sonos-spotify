@@ -44,4 +44,9 @@ void showWeather(const weather::View& view, const Status& status);
 
 uint32_t refreshCount();
 
+// Reprend le comptage là où il s'était arrêté. Le deep sleep repasse par
+// `setup()` : sans cela, le compteur exposé à Home Assistant retomberait à zéro
+// à chaque réveil, et le garde-fou anti-redraw perdrait tout son sens.
+void restoreRefreshCount(uint32_t count);
+
 }  // namespace display

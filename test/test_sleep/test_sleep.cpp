@@ -175,8 +175,32 @@ void test_activity_then_inactivity_cycle() {
   TEST_ASSERT_TRUE(d.should_sleep);
 }
 
+// Le deep sleep repasse par `setup()` : l'objet est reconstruit et a tout
+// oublié. Sans reprise, le boîtier resterait éveillé dix minutes pour une
+// minute de sommeil — l'inverse du but recherché.
+void test_resume_after_wake_sleeps_again_without_a_new_countdown() {
+  power::SleepManager mgr;
+  uint32_t now = 5000;  // quelques secondes après un réveil
+
+  // Sans reprise, il faudrait attendre le seuil complet.
+  TEST_ASSERT_FALSE(mgr.updateAndDecide(now, false, false).should_sleep);
+
+  mgr.resumeAfterWake(now);
+  TEST_ASSERT_TRUE(mgr.updateAndDecide(now, false, false).should_sleep);
+}
+
+// Une reprise ne doit pas endormir un boîtier qui joue de la musique.
+void test_resume_after_wake_yields_to_playback() {
+  power::SleepManager mgr;
+  uint32_t now = 5000;
+  mgr.resumeAfterWake(now);
+  TEST_ASSERT_FALSE(mgr.updateAndDecide(now, true, false).should_sleep);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_resume_after_wake_sleeps_again_without_a_new_countdown);
+  RUN_TEST(test_resume_after_wake_yields_to_playback);
   RUN_TEST(test_playing_never_sleeps);
   RUN_TEST(test_short_inactivity_stays_active);
   RUN_TEST(test_long_inactivity_sleeps);
