@@ -473,26 +473,33 @@ void showWeather(const weather::View& view, const Status& status) {
   constexpr int16_t kHeadlineY = 60;
   constexpr int16_t kDetailsY = 175;
   constexpr int16_t kIndoorY = 220;
-  constexpr int16_t kColumnsY = 290;
+  // Le bloc des créneaux remonte de huit pixels : les espaces ajoutés autour
+  // des pictogrammes auraient sinon poussé la ligne de précipitations sous le
+  // trait du bandeau.
+  constexpr int16_t kColumnsY = 282;
 
   // La température domine : c'est la seule information qu'on lit de loin.
   epaper.setTextColor(TFT_BLACK);
   applyTitleStyle(layout::TitleStyle::kHuge);
   epaper.drawString(view.temperature.c_str(), kMargin, kHeadlineY);
 
-  // Le pictogramme occupe le coin haut droit, le libellé passe dessous. Le
-  // libellé reste aligné à droite plutôt que centré sous l'icône : « Peu
-  // nuageux » déborderait de la marge.
-  if (!view.stale) {
-    drawConditionIcon(kWidth - kMargin - 60, kHeadlineY + 50, 55, view.condition);
-  }
-
+  // Le libellé reste aligné à droite — centré sous l'icône, « Peu nuageux »
+  // déborderait de la marge — mais l'icône, elle, se centre sur lui. Sa
+  // position se calcule donc à partir de la largeur du texte, mesurée avec la
+  // police qui servira à le tracer.
   epaper.setTextSize(1);
   epaper.setFreeFont(&FreeSansBold24pt7b);
+
+  if (!view.stale) {
+    const int16_t label_width = epaper.textWidth(view.condition_label.c_str());
+    drawConditionIcon(kWidth - kMargin - label_width / 2, kHeadlineY + 48, 55,
+                      view.condition);
+  }
+
   epaper.setTextColor(view.stale ? TFT_RED : TFT_BLUE);
   epaper.setTextDatum(TR_DATUM);
   epaper.drawString(view.condition_label.c_str(), kWidth - kMargin,
-                    view.stale ? kHeadlineY + 20 : kHeadlineY + 108);
+                    view.stale ? kHeadlineY + 20 : kHeadlineY + 120);
   epaper.setTextDatum(TL_DATUM);
 
   epaper.setFreeFont(&FreeSans18pt7b);
@@ -521,15 +528,21 @@ void showWeather(const weather::View& view, const Status& status) {
       epaper.setTextColor(TFT_BLACK);
       epaper.drawString(column.hour.c_str(), centre, kColumnsY);
 
-      drawConditionIcon(centre, kColumnsY + 44, 20, column.condition);
+      // Une ligne de 18 pt occupe 26 px sous son point d'ancrage. Le
+      // pictogramme est donc centré assez bas pour laisser respirer l'heure :
+      // collé, il se lisait comme un accent du texte plutôt que comme un
+      // symbole. Rayon réduit de 20 à 18 pour dégager la même marge en dessous.
+      drawConditionIcon(centre, kColumnsY + 53, 18, column.condition);
 
-      epaper.setFreeFont(&FreeSansBold18pt7b);
-      epaper.drawString(column.temperature.c_str(), centre, kColumnsY + 74);
+      // Même graisse que l'heure : en gras, la température écrasait le reste de
+      // la colonne alors que les deux valeurs se lisent ensemble.
+      epaper.setFreeFont(&FreeSans18pt7b);
+      epaper.drawString(column.temperature.c_str(), centre, kColumnsY + 80);
 
       if (!column.precipitation.empty()) {
         epaper.setFreeFont(&FreeSans12pt7b);
         epaper.setTextColor(TFT_BLUE);
-        epaper.drawString(column.precipitation.c_str(), centre, kColumnsY + 112);
+        epaper.drawString(column.precipitation.c_str(), centre, kColumnsY + 114);
         epaper.setTextColor(TFT_BLACK);
       }
     }

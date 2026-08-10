@@ -113,6 +113,18 @@ rafraîchissements de 37 s pour juger de proportions auraient été absurdes. Il
 apparaître trois défauts — un croissant flanqué d'une pleine lune blanche, des gouttes
 longues comme des barreaux d'échelle, neige et grêle identiques.
 
+Trois réglages typographiques ont suivi, chacun signalé sur photo et invisible autrement :
+
+- la **température des créneaux** passe en graisse normale — en gras elle écrasait l'heure,
+  alors que les deux valeurs se lisent ensemble ;
+- **9 px de respiration** entre l'heure et le pictogramme, qui se lisait comme un accent du
+  texte tant il y était collé ; le rayon passe de 20 à 18 px et tout le bloc remonte de 8 px,
+  faute de quoi la ligne de précipitations serait passée sous le trait du bandeau ;
+- le **grand pictogramme se centre sur le libellé** au lieu d'occuper une position fixe : sa
+  position se calcule à partir de la largeur du texte, mesurée avec la police qui servira à
+  le tracer. L'alignement tient donc du court « Orage » au long « Peu nuageux ». Le libellé
+  reste aligné à droite — centré sous l'icône, il déborderait de la marge.
+
 La photo du README montre l'écran définitif.
 
 ### Correction de L14 : la compilation cible échouait
