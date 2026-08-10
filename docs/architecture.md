@@ -10,7 +10,8 @@
 
 ## Le principe directeur
 
-Un rafraîchissement de l'ePaper Spectra 6 prend **25 à 30 secondes**. Toute l'architecture
+Un rafraîchissement de l'ePaper Spectra 6 prend **37 secondes**, mesurées sur le boîtier —
+au-dessus des 25 à 30 s annoncées par Seeed. Toute l'architecture
 en découle : **on ne redessine que lorsque le contenu change réellement**. Concrètement, une
 empreinte du morceau (`TrackURI` + titre + état de transport) est comparée à celle de
 l'image actuellement affichée ; tant qu'elle est identique, l'écran n'est pas touché. La

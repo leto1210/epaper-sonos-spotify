@@ -52,7 +52,7 @@ std::string g_forced_zone = ha::kAutoZone;
 
 idle::PauseTimer g_pause_timer;
 
-sleep::SleepManager g_sleep_manager;
+power::SleepManager g_sleep_manager;
 
 // Horodatage du dernier rafraîchissement, au format attendu par Home Assistant
 // (`device_class: timestamp`). Vide tant que l'heure n'a pas été synchronisée :
@@ -375,18 +375,20 @@ void loop() {
   const bool anything_playing = !g_last_zone.empty() && !g_last_ip.empty();
   const bool user_activity_recent =
       (millis() - g_last_button_press_ms) < 2000UL;
-  const sleep::Decision sleep_decision =
+  const power::Decision sleep_decision =
       g_sleep_manager.updateAndDecide(millis(), anything_playing, user_activity_recent);
 
   if (sleep_decision.should_sleep && wifi_mgr::isConnected()) {
     Serial.printf("[sleep] entree en deep sleep pour %u ms\n",
                   sleep_decision.duration_ms);
-    // Préparer le réveil par timer (60 secondes) et par GPIO4 (appui de bouton).
-    esp_sleep_enable_timer_wakeup(
-        static_cast<uint64_t>(sleep_decision.duration_ms) * 1000ULL);
-    esp_sleep_enable_ext0_wakeup(GPIO_NUM_4, 0);  // GPIO4 actif bas
+    // GPIO4 actif bas : c'est aussi le bouton « suivant », mais un réveil ne
+    // saute jamais de morceau — il déclenche un sondage complet.
+    esp_sleep_enable_ext0_wakeup(GPIO_NUM_4, 0);
+
+    // `esp_deep_sleep` arme lui-même le réveil par timer à partir de la durée
+    // qu'on lui passe, en microsecondes. Elle ne revient jamais.
     Serial.flush();
-    esp_deep_sleep();  // ne revient jamais ici
+    esp_deep_sleep(static_cast<uint64_t>(sleep_decision.duration_ms) * 1000ULL);
   }
 
   // Demande venue de Home Assistant, traitée hors de la fonction de rappel MQTT.

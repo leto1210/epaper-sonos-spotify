@@ -6,10 +6,15 @@
 // réveille. Logique pure — elle ne voit qu'une horloge et des états, donc se
 // teste sans matériel.
 //
-// La device entre en deep sleep après 10 minutes sans rien à jouer, puis se
+// Le boîtier entre en deep sleep après 10 minutes sans rien à jouer, puis se
 // réveille toutes les minutes pour un sondage. Un appui de bouton (GPIO4)
 // réveille immédiatement.
-namespace sleep {
+//
+// L'espace de noms s'appelle `power` et non `sleep` : `unistd.h` déclare une
+// fonction `sleep()` au niveau global, et le compilateur croisé refuse de voir
+// le même nom désigner deux choses. Le défaut n'apparaît qu'à la compilation
+// pour la cible — l'environnement natif compile sans broncher.
+namespace power {
 
 // Durée de chaque tranche de sommeil : 60 secondes.
 constexpr uint32_t kSleepIntervalMs = 60 * 1000;
@@ -40,4 +45,4 @@ class SleepManager {
   uint32_t wake_at_ms_ = 0;
 };
 
-}  // namespace sleep
+}  // namespace power

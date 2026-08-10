@@ -77,6 +77,25 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
 
 ## Revue
 
+### Correction de L14 : la compilation cible échouait
+
+L14 est passée en natif mais **pas** pour l'ESP32-S3, et la CI est restée rouge. Deux causes,
+aucune visible depuis l'environnement `native` :
+
+1. **`namespace sleep` entrait en collision avec `sleep()` de POSIX**, déclarée par
+   `unistd.h` que la chaîne Espressif tire par `lwipopts.h`. Le compilateur refusait de voir
+   le même nom désigner un espace de noms et une fonction. Renommé en `power`.
+2. **`esp_deep_sleep()` prend une durée en microsecondes** ; elle était appelée sans
+   argument. L'appel arme lui-même le réveil par timer, ce qui rend
+   `esp_sleep_enable_timer_wakeup` redondant — supprimé.
+
+La leçon vaut d'être notée : `pio test -e native` ne remplace pas `pio run`. Une livraison
+écrite hors matériel doit passer les deux avant d'être poussée, et la CI le vérifie
+justement dans cet ordre.
+
+Le README pointait aussi vers `docs/images/device.jpg`, qui n'existe pas encore : image
+cassée sur la page d'accueil d'un dépôt public. Remis en commentaire jusqu'à la photo.
+
 ### L14 (hors ligne, sans matériel)
 Machine à états pure (aucune dépendance Arduino) : quand s'endormir, pour combien de temps,
 ce qui réveille. Suivant le modèle de `core/pause_timer`, tous les états et transitions

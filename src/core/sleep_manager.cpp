@@ -1,6 +1,6 @@
 #include "core/sleep_manager.h"
 
-namespace sleep {
+namespace power {
 
 void SleepManager::reset() {
   inactive_since_ms_ = 0;
@@ -74,4 +74,4 @@ Decision SleepManager::updateAndDecide(
   return result;
 }
 
-}  // namespace sleep
+}  // namespace power
