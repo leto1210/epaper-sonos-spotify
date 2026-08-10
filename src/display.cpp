@@ -102,25 +102,153 @@ void drawArtPlaceholder(int16_t x, int16_t y, int16_t size) {
   epaper.drawLine(x + size, y, x, y + size, TFT_BLACK);
 }
 
-// Une couleur par famille de temps. C'est le seul endroit du projet où les six
-// encres servent à porter du sens plutôt qu'à reproduire une image.
-uint16_t conditionColor(weather::Condition condition) {
-  switch (condition) {
-    case weather::Condition::kSunny: return TFT_YELLOW;
-    case weather::Condition::kClearNight: return TFT_BLUE;
-    case weather::Condition::kPartlyCloudy: return TFT_YELLOW;
-    case weather::Condition::kRainy:
-    case weather::Condition::kPouring: return TFT_BLUE;
-    case weather::Condition::kLightning: return TFT_RED;
-    case weather::Condition::kSnowy:
-    case weather::Condition::kHail: return TFT_BLUE;
-    case weather::Condition::kWindy: return TFT_GREEN;
-    case weather::Condition::kExceptional: return TFT_RED;
-    case weather::Condition::kCloudy:
-    case weather::Condition::kFog:
-    case weather::Condition::kUnknown: break;
+// --- Pictogrammes météo ------------------------------------------------------
+//
+// Dessinés au trait plutôt que tirés d'une bibliothèque d'icônes : les
+// FreeFonts n'ont pas de symboles météo, et une image bitmap devrait exister en
+// deux tailles, être tramée, et occuper de la flash pour rien. Des primitives
+// géométriques se redimensionnent d'elles-mêmes et restent nettes.
+//
+// C'est aussi le seul endroit du projet où les six encres portent du sens
+// plutôt qu'elles ne reproduisent une image : soleil jaune, nuage bleu, orage
+// rouge, vent vert.
+
+// Le nuage est un aplat sans contour : trois disques et un rectangle de la même
+// couleur se fondent en une seule forme. Un contour aurait laissé apparaître
+// les traits intérieurs des disques.
+void drawCloud(int16_t cx, int16_t cy, int16_t r, uint16_t color) {
+  epaper.fillCircle(cx - r * 45 / 100, cy, r * 42 / 100, color);
+  epaper.fillCircle(cx + r * 30 / 100, cy, r * 36 / 100, color);
+  epaper.fillCircle(cx - r * 5 / 100, cy - r * 28 / 100, r * 50 / 100, color);
+  epaper.fillRect(cx - r * 45 / 100, cy, r * 75 / 100, r * 42 / 100, color);
+}
+
+void drawSun(int16_t cx, int16_t cy, int16_t r, bool with_rays) {
+  epaper.fillCircle(cx, cy, r * 55 / 100, TFT_YELLOW);
+  if (!with_rays) return;
+
+  // Huit rayons, en croix puis en diagonale. Les diagonales sont raccourcies
+  // d'un facteur ~0,7 pour que les pointes restent sur un même cercle.
+  const int16_t in = r * 70 / 100;
+  const int16_t out = r;
+  const int16_t din = in * 70 / 100;
+  const int16_t dout = out * 70 / 100;
+
+  epaper.drawLine(cx, cy - in, cx, cy - out, TFT_YELLOW);
+  epaper.drawLine(cx, cy + in, cx, cy + out, TFT_YELLOW);
+  epaper.drawLine(cx - in, cy, cx - out, cy, TFT_YELLOW);
+  epaper.drawLine(cx + in, cy, cx + out, cy, TFT_YELLOW);
+  epaper.drawLine(cx - din, cy - din, cx - dout, cy - dout, TFT_YELLOW);
+  epaper.drawLine(cx + din, cy - din, cx + dout, cy - dout, TFT_YELLOW);
+  epaper.drawLine(cx - din, cy + din, cx - dout, cy + dout, TFT_YELLOW);
+  epaper.drawLine(cx + din, cy + din, cx + dout, cy + dout, TFT_YELLOW);
+}
+
+// Gouttes, flocons ou grêlons sous un nuage.
+void drawFallout(int16_t cx, int16_t cy, int16_t r, int count, uint16_t color,
+                 bool round) {
+  const int16_t spacing = r * 40 / 100;
+  const int16_t start = cx - spacing * (count - 1) / 2;
+  for (int i = 0; i < count; ++i) {
+    const int16_t x = start + spacing * i;
+    if (round) {
+      epaper.fillCircle(x, cy + r * 12 / 100, r * 9 / 100, color);
+    } else {
+      epaper.drawLine(x, cy, x - r * 10 / 100, cy + r * 30 / 100, color);
+    }
   }
-  return TFT_BLACK;
+}
+
+// `r` est le rayon utile du pictogramme : tout tient dans un carré de 2r.
+void drawConditionIcon(int16_t cx, int16_t cy, int16_t r,
+                       weather::Condition condition) {
+  switch (condition) {
+    case weather::Condition::kSunny:
+      drawSun(cx, cy, r, true);
+      return;
+
+    case weather::Condition::kClearNight:
+      // Croissant : un disque jaune que mord un second disque de la couleur du
+      // fond. Plus lisible qu'un arc de cercle à cette taille.
+      epaper.fillCircle(cx, cy, r * 75 / 100, TFT_YELLOW);
+      epaper.fillCircle(cx + r * 40 / 100, cy - r * 30 / 100, r * 68 / 100, TFT_WHITE);
+      return;
+
+    case weather::Condition::kPartlyCloudy:
+      drawSun(cx + r * 30 / 100, cy - r * 35 / 100, r * 60 / 100, true);
+      drawCloud(cx - r * 10 / 100, cy + r * 25 / 100, r * 90 / 100, TFT_BLUE);
+      return;
+
+    case weather::Condition::kCloudy:
+      drawCloud(cx, cy, r, TFT_BLUE);
+      return;
+
+    case weather::Condition::kFog:
+      drawCloud(cx, cy - r * 20 / 100, r * 85 / 100, TFT_BLUE);
+      for (int i = 0; i < 3; ++i) {
+        const int16_t y = cy + r * (35 + 22 * i) / 100;
+        epaper.drawLine(cx - r * 55 / 100, y, cx + r * 55 / 100, y, TFT_BLACK);
+      }
+      return;
+
+    case weather::Condition::kRainy:
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100, TFT_BLUE);
+      drawFallout(cx, cy + r * 45 / 100, r, 3, TFT_BLUE, false);
+      return;
+
+    case weather::Condition::kPouring:
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100, TFT_BLUE);
+      drawFallout(cx, cy + r * 40 / 100, r, 5, TFT_BLUE, false);
+      return;
+
+    case weather::Condition::kLightning: {
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100, TFT_BLUE);
+      // Éclair : deux segments qui se replient, en rouge — la seule condition
+      // qui mérite d'attirer l'œil de loin.
+      const int16_t top = cy + r * 25 / 100;
+      const int16_t mid = cy + r * 55 / 100;
+      const int16_t bottom = cy + r * 95 / 100;
+      epaper.drawLine(cx + r * 15 / 100, top, cx - r * 15 / 100, mid, TFT_RED);
+      epaper.drawLine(cx - r * 15 / 100, mid, cx + r * 10 / 100, mid, TFT_RED);
+      epaper.drawLine(cx + r * 10 / 100, mid, cx - r * 20 / 100, bottom, TFT_RED);
+      return;
+    }
+
+    case weather::Condition::kSnowy:
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100, TFT_BLUE);
+      // Les flocons sont noirs : du blanc sur fond blanc ne se verrait pas.
+      drawFallout(cx, cy + r * 45 / 100, r, 3, TFT_BLACK, true);
+      return;
+
+    case weather::Condition::kHail:
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100, TFT_BLUE);
+      drawFallout(cx, cy + r * 45 / 100, r, 4, TFT_BLACK, true);
+      return;
+
+    case weather::Condition::kWindy:
+      for (int i = 0; i < 3; ++i) {
+        const int16_t y = cy + r * (35 * i - 35) / 100;
+        const int16_t length = r * (i == 1 ? 90 : 65) / 100;
+        epaper.drawLine(cx - length, y, cx + length, y, TFT_GREEN);
+        // Le petit crochet suffit à distinguer une bourrasque de trois traits.
+        epaper.drawLine(cx + length, y, cx + length - r * 12 / 100,
+                        y - r * 15 / 100, TFT_GREEN);
+      }
+      return;
+
+    case weather::Condition::kExceptional:
+      epaper.fillCircle(cx, cy, r * 70 / 100, TFT_RED);
+      epaper.fillRect(cx - r * 8 / 100, cy - r * 40 / 100, r * 16 / 100, r * 50 / 100,
+                      TFT_WHITE);
+      epaper.fillCircle(cx, cy + r * 40 / 100, r * 9 / 100, TFT_WHITE);
+      return;
+
+    case weather::Condition::kUnknown:
+      // Un cercle vide plutôt qu'un symbole inventé : la condition est inconnue,
+      // l'écran le dit sans prétendre autre chose.
+      epaper.drawCircle(cx, cy, r * 60 / 100, TFT_BLACK);
+      return;
+  }
 }
 
 // `left` est déjà composé par l'appelant : l'écran météo n'a ni symbole de
@@ -277,11 +405,19 @@ void showWeather(const weather::View& view, const Status& status) {
   applyTitleStyle(layout::TitleStyle::kHuge);
   epaper.drawString(view.temperature.c_str(), kMargin, kHeadlineY);
 
+  // Le pictogramme occupe le coin haut droit, le libellé passe dessous. Le
+  // libellé reste aligné à droite plutôt que centré sous l'icône : « Peu
+  // nuageux » déborderait de la marge.
+  if (!view.stale) {
+    drawConditionIcon(kWidth - kMargin - 60, kHeadlineY + 50, 55, view.condition);
+  }
+
   epaper.setTextSize(1);
   epaper.setFreeFont(&FreeSansBold24pt7b);
   epaper.setTextColor(view.stale ? TFT_RED : TFT_BLUE);
   epaper.setTextDatum(TR_DATUM);
-  epaper.drawString(view.condition_label.c_str(), kWidth - kMargin, kHeadlineY + 20);
+  epaper.drawString(view.condition_label.c_str(), kWidth - kMargin,
+                    view.stale ? kHeadlineY + 20 : kHeadlineY + 108);
   epaper.setTextDatum(TL_DATUM);
 
   epaper.setFreeFont(&FreeSans18pt7b);
@@ -310,11 +446,7 @@ void showWeather(const weather::View& view, const Status& status) {
       epaper.setTextColor(TFT_BLACK);
       epaper.drawString(column.hour.c_str(), centre, kColumnsY);
 
-      // Une pastille de couleur tient lieu de pictogramme : les FreeFonts n'ont
-      // pas de symboles météo, et six encres suffisent à distinguer le soleil
-      // de la pluie d'un coup d'œil.
-      epaper.fillCircle(centre, kColumnsY + 48, 14, conditionColor(column.condition));
-      epaper.drawCircle(centre, kColumnsY + 48, 14, TFT_BLACK);
+      drawConditionIcon(centre, kColumnsY + 44, 20, column.condition);
 
       epaper.setFreeFont(&FreeSansBold18pt7b);
       epaper.drawString(column.temperature.c_str(), centre, kColumnsY + 74);

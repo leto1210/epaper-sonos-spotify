@@ -73,9 +73,34 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
 - [x] **L14** — Veille et deep sleep
       → `pio test -e native` au vert (10 nouveaux tests + 81 existants), intégration
         dans main.cpp avec esp_deep_sleep() ; 91/91 tests ; validation matériel en suspens
-- [ ] **L15** — Finition doc : photos, captures HA, architecture mise à jour
+- [~] **L15** — Finition doc : photos, captures HA, architecture mise à jour
+      → photo de l'écran météo dans le README ; restent la photo du panneau au mur et
+        une capture des entités HA
 
 ## Revue
+
+### Pictogrammes météo
+
+Les pastilles de couleur disaient la famille de temps sans la nommer. Elles sont remplacées
+par des pictogrammes dessinés au trait — soleil, croissant, nuage, pluie, éclair, flocons,
+bourrasque — un grand dans le coin haut droit, un petit par créneau.
+
+Dessinés en primitives géométriques plutôt qu'en bitmaps : les FreeFonts n'ont pas de
+symboles météo, et une image tramée devrait exister en deux tailles et occuper de la flash.
+Des cercles et des lignes se redimensionnent d'eux-mêmes, `r` étant le rayon utile.
+
+Deux détails de dessin qui ne sont pas gratuits :
+- le nuage est un **aplat sans contour** (trois disques et un rectangle de la même couleur) —
+  un contour aurait laissé apparaître les traits intérieurs des disques ;
+- les flocons sont **noirs**, pas blancs : du blanc sur fond blanc ne se verrait pas.
+
+Le pictogramme se choisit sur l'énumération `Condition`, jamais sur le libellé traduit —
+d'où l'ajout de `condition` à `weather::View`, couvert par deux tests. Une météo périmée
+n'affiche aucun pictogramme : dessiner un soleil au-dessus de « Météo périmée » reviendrait
+à affirmer ce qu'on vient de démentir.
+
+**À vérifier sur le panneau** : le boîtier n'était pas branché. La photo du README montre
+l'écran *avant* ce changement, avec les pastilles — à refaire après le prochain flash.
 
 ### Correction de L14 : la compilation cible échouait
 

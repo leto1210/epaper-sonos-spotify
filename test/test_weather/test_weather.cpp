@@ -89,6 +89,8 @@ void test_view_formats_current_conditions() {
 
   TEST_ASSERT_FALSE(view.stale);
   TEST_ASSERT_EQUAL_STRING("Ensoleille", view.condition_label.c_str());
+  // Le pictogramme se choisit sur l'énumération, pas sur le libellé traduit.
+  TEST_ASSERT_EQUAL(weather::Condition::kSunny, view.condition);
   TEST_ASSERT_EQUAL_STRING("33 C", view.temperature.c_str());  // 32,6 arrondi
   TEST_ASSERT_EQUAL_STRING("23 %   10 km/h   UV 5.6", view.details.c_str());
 }
@@ -118,6 +120,9 @@ void test_view_hides_figures_when_the_report_is_stale() {
   TEST_ASSERT_EQUAL_STRING("Meteo perimee", view.condition_label.c_str());
   TEST_ASSERT_TRUE(view.temperature.empty());
   TEST_ASSERT_TRUE(view.columns.empty());
+  // Aucun pictogramme non plus : dessiner un soleil au-dessus de « Météo
+  // périmée » reviendrait à affirmer ce qu'on vient de démentir.
+  TEST_ASSERT_EQUAL(weather::Condition::kUnknown, view.condition);
 }
 
 void test_view_without_any_report_says_so() {

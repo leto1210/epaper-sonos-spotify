@@ -19,6 +19,12 @@ ligne : le boîtier interroge directement vos enceintes sur le réseau local.
 - Écran météo quand rien ne joue : conditions du moment, prévisions horaires, et comparaison
   avec la température intérieure mesurée par le boîtier — il prend aussi la place d'un
   morceau en pause depuis plus de cinq minutes
+
+![L'écran météo du boîtier](docs/images/weather.jpg)
+
+*Quand la musique s'arrête : conditions du moment, six créneaux sur douze heures, et la
+température intérieure mesurée par le boîtier lui-même. Les données viennent de Home
+Assistant par MQTT — le boîtier ne l'interroge jamais, il écoute.*
 - Fonctionne sur batterie : l'écran n'est redessiné que lorsque le morceau change
 
 ## Matériel

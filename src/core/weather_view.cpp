@@ -35,6 +35,7 @@ View plan(const Report& report, long now_unix, bool has_indoor, float indoor_c,
     return view;
   }
 
+  view.condition = report.condition;
   view.condition_label = conditionLabel(report.condition);
   view.temperature = degrees(report.temperature_c);
 

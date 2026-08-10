@@ -22,6 +22,10 @@ struct View {
   // broker resservirait sinon indéfiniment la dernière météo publiée.
   bool stale = true;
 
+  // Le pictogramme se choisit sur l'énumération, pas sur le libellé : comparer
+  // des chaînes traduites pour décider d'un dessin serait fragile.
+  Condition condition = Condition::kUnknown;
+
   std::string condition_label;  // "Ensoleillé"
   std::string temperature;      // "32°"
   std::string details;          // "23 %   10 km/h   UV 5.6"
