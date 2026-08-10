@@ -24,7 +24,9 @@ ligne : le boîtier interroge directement vos enceintes sur le réseau local.
 
 *Quand la musique s'arrête : conditions du moment, six créneaux sur douze heures, et la
 température intérieure mesurée par le boîtier lui-même. Les données viennent de Home
-Assistant par MQTT — le boîtier ne l'interroge jamais, il écoute.*
+Assistant par MQTT — le boîtier ne l'interroge jamais, il écoute. Les pictogrammes sont
+dessinés au trait, en noir et blanc : voir [docs/hardware.md](docs/hardware.md) pour la
+raison, qui tient au panneau.*
 - Fonctionne sur batterie : l'écran n'est redessiné que lorsque le morceau change
 
 ## Matériel

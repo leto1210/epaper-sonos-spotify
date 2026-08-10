@@ -109,52 +109,105 @@ void drawArtPlaceholder(int16_t x, int16_t y, int16_t size) {
 // deux tailles, être tramée, et occuper de la flash pour rien. Des primitives
 // géométriques se redimensionnent d'elles-mêmes et restent nettes.
 //
-// C'est aussi le seul endroit du projet où les six encres portent du sens
-// plutôt qu'elles ne reproduisent une image : soleil jaune, nuage bleu, orage
-// rouge, vent vert.
+// Uniquement du noir et du blanc. La première version employait les six encres
+// — soleil jaune, nuage bleu — mais sur le panneau les contours fins
+// ressortaient *bruns* et non noirs : le Spectra 6 rend une ligne de quelques
+// pixels en la composant avec ses pigments, et la couleur pure ne survit qu'aux
+// aplats larges. Le noir et blanc, lui, est franc à toute échelle.
 
-// Le nuage est un aplat sans contour : trois disques et un rectangle de la même
-// couleur se fondent en une seule forme. Un contour aurait laissé apparaître
-// les traits intérieurs des disques.
-void drawCloud(int16_t cx, int16_t cy, int16_t r, uint16_t color) {
+// Épaisseur du contour, proportionnelle à la taille du pictogramme mais jamais
+// inférieure à 3 px : en dessous, le trait grisaille au lieu d'être noir.
+int16_t strokeWidth(int16_t r) {
+  const int16_t w = r * 13 / 100;
+  return w < 3 ? 3 : w;
+}
+
+// Le contour s'obtient en dessinant la même forme, en noir, légèrement plus
+// grande, puis la forme pleine par-dessus. Sur une silhouette composée de
+// plusieurs disques — un nuage — c'est le seul moyen simple de cerner l'union
+// sans laisser apparaître les traits intérieurs.
+void cloudShape(int16_t cx, int16_t cy, int16_t r, uint16_t color) {
   epaper.fillCircle(cx - r * 45 / 100, cy, r * 42 / 100, color);
   epaper.fillCircle(cx + r * 30 / 100, cy, r * 36 / 100, color);
   epaper.fillCircle(cx - r * 5 / 100, cy - r * 28 / 100, r * 50 / 100, color);
   epaper.fillRect(cx - r * 45 / 100, cy, r * 75 / 100, r * 42 / 100, color);
 }
 
-void drawSun(int16_t cx, int16_t cy, int16_t r, bool with_rays) {
-  epaper.fillCircle(cx, cy, r * 55 / 100, TFT_YELLOW);
-  if (!with_rays) return;
+void drawCloud(int16_t cx, int16_t cy, int16_t r) {
+  // Le plus gros disque du nuage vaut la moitié de `r` : pour épaissir la
+  // silhouette de `s` pixels, il faut donc agrandir `r` de deux fois `s`.
+  const int16_t s = strokeWidth(r);
+  cloudShape(cx, cy, r + 2 * s, TFT_BLACK);
+  cloudShape(cx, cy, r, TFT_WHITE);
 
-  // Huit rayons, en croix puis en diagonale. Les diagonales sont raccourcies
-  // d'un facteur ~0,7 pour que les pointes restent sur un même cercle.
-  const int16_t in = r * 70 / 100;
-  const int16_t out = r;
-  const int16_t din = in * 70 / 100;
-  const int16_t dout = out * 70 / 100;
-
-  epaper.drawLine(cx, cy - in, cx, cy - out, TFT_YELLOW);
-  epaper.drawLine(cx, cy + in, cx, cy + out, TFT_YELLOW);
-  epaper.drawLine(cx - in, cy, cx - out, cy, TFT_YELLOW);
-  epaper.drawLine(cx + in, cy, cx + out, cy, TFT_YELLOW);
-  epaper.drawLine(cx - din, cy - din, cx - dout, cy - dout, TFT_YELLOW);
-  epaper.drawLine(cx + din, cy - din, cx + dout, cy - dout, TFT_YELLOW);
-  epaper.drawLine(cx - din, cy + din, cx - dout, cy + dout, TFT_YELLOW);
-  epaper.drawLine(cx + din, cy + din, cx + dout, cy + dout, TFT_YELLOW);
+  // Deux barres dans le ventre du nuage lui donnent du volume, faute d'un gris
+  // que le panneau n'a pas. Elles sont placées par construction bien à
+  // l'intérieur de la silhouette : impossible qu'elles débordent, contrairement
+  // à un hachurage qu'il faudrait détourer.
+  //
+  // Réservées au grand format : sur les vignettes des créneaux horaires, elles
+  // remplissaient le nuage au lieu de le nuancer.
+  if (r < 30) return;
+  for (int i = 0; i < 2; ++i) {
+    const int16_t y = cy + r * (12 + 20 * i) / 100;
+    const int16_t half = r * (i == 0 ? 40 : 28) / 100;
+    epaper.fillRect(cx - half, y, half * 2, s / 2 + 1, TFT_BLACK);
+  }
 }
 
-// Gouttes, flocons ou grêlons sous un nuage.
-void drawFallout(int16_t cx, int16_t cy, int16_t r, int count, uint16_t color,
-                 bool round) {
-  const int16_t spacing = r * 40 / 100;
+// Segment épais : la bibliothèque ne trace que des lignes d'un pixel.
+void thickLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t width,
+               uint16_t color) {
+  for (int16_t i = -width / 2; i <= width / 2; ++i) {
+    // Décalage perpendiculaire approximé sur les deux axes : suffisant pour des
+    // traits courts, et sans trigonométrie.
+    epaper.drawLine(x0 + i, y0, x1 + i, y1, color);
+    epaper.drawLine(x0, y0 + i, x1, y1 + i, color);
+  }
+}
+
+void drawSun(int16_t cx, int16_t cy, int16_t r, bool with_rays) {
+  const int16_t s = strokeWidth(r);
+
+  if (with_rays) {
+    // Huit rayons, en croix puis en diagonale. Les diagonales sont raccourcies
+    // d'un facteur ~0,7 pour que les pointes restent sur un même cercle.
+    const int16_t in = r * 72 / 100;
+    const int16_t out = r;
+    const int16_t din = in * 70 / 100;
+    const int16_t dout = out * 70 / 100;
+
+    thickLine(cx, cy - in, cx, cy - out, s, TFT_BLACK);
+    thickLine(cx, cy + in, cx, cy + out, s, TFT_BLACK);
+    thickLine(cx - in, cy, cx - out, cy, s, TFT_BLACK);
+    thickLine(cx + in, cy, cx + out, cy, s, TFT_BLACK);
+    thickLine(cx - din, cy - din, cx - dout, cy - dout, s, TFT_BLACK);
+    thickLine(cx + din, cy - din, cx + dout, cy - dout, s, TFT_BLACK);
+    thickLine(cx - din, cy + din, cx - dout, cy + dout, s, TFT_BLACK);
+    thickLine(cx + din, cy + din, cx + dout, cy + dout, s, TFT_BLACK);
+  }
+
+  epaper.fillCircle(cx, cy, r * 55 / 100 + s, TFT_BLACK);
+  epaper.fillCircle(cx, cy, r * 55 / 100, TFT_WHITE);
+}
+
+// Gouttes, flocons ou grêlons sous un nuage. `hollow` évide la forme pour
+// distinguer la neige de la grêle sans recourir à une couleur.
+void drawFallout(int16_t cx, int16_t cy, int16_t r, int count, bool round,
+                 bool hollow = false) {
+  const int16_t s = strokeWidth(r);
+  const int16_t spacing = r * 30 / 100;
   const int16_t start = cx - spacing * (count - 1) / 2;
+
   for (int i = 0; i < count; ++i) {
     const int16_t x = start + spacing * i;
     if (round) {
-      epaper.fillCircle(x, cy + r * 12 / 100, r * 9 / 100, color);
+      epaper.fillCircle(x, cy + r * 12 / 100, r * 13 / 100 + s / 2, TFT_BLACK);
+      if (hollow) epaper.fillCircle(x, cy + r * 12 / 100, r * 13 / 100 - s / 2, TFT_WHITE);
     } else {
-      epaper.drawLine(x, cy, x - r * 10 / 100, cy + r * 30 / 100, color);
+      // Trait plein et court : allongé, il ressemblait à un barreau d'échelle
+      // plutôt qu'à de la pluie.
+      thickLine(x, cy, x - r * 7 / 100, cy + r * 22 / 100, s, TFT_BLACK);
     }
   }
 }
@@ -167,87 +220,109 @@ void drawConditionIcon(int16_t cx, int16_t cy, int16_t r,
       drawSun(cx, cy, r, true);
       return;
 
-    case weather::Condition::kClearNight:
-      // Croissant : un disque jaune que mord un second disque de la couleur du
-      // fond. Plus lisible qu'un arc de cercle à cette taille.
-      epaper.fillCircle(cx, cy, r * 75 / 100, TFT_YELLOW);
-      epaper.fillCircle(cx + r * 40 / 100, cy - r * 30 / 100, r * 68 / 100, TFT_WHITE);
+    case weather::Condition::kClearNight: {
+      // Croissant plein : un disque noir que mord un disque blanc. Cerner la
+      // morsure dessinait un cercle noir complet à droite de la lune — on y
+      // voyait une pleine lune posée à côté du croissant, pas une échancrure.
+      const int16_t s = strokeWidth(r);
+      epaper.fillCircle(cx, cy, r * 70 / 100 + s, TFT_BLACK);
+      epaper.fillCircle(cx + r * 38 / 100, cy - r * 26 / 100, r * 66 / 100, TFT_WHITE);
       return;
+    }
 
     case weather::Condition::kPartlyCloudy:
-      drawSun(cx + r * 30 / 100, cy - r * 35 / 100, r * 60 / 100, true);
-      drawCloud(cx - r * 10 / 100, cy + r * 25 / 100, r * 90 / 100, TFT_BLUE);
+      drawSun(cx + r * 32 / 100, cy - r * 38 / 100, r * 58 / 100, true);
+      drawCloud(cx - r * 12 / 100, cy + r * 28 / 100, r * 85 / 100);
       return;
 
     case weather::Condition::kCloudy:
-      drawCloud(cx, cy, r, TFT_BLUE);
+      drawCloud(cx, cy, r);
       return;
 
     case weather::Condition::kFog:
-      drawCloud(cx, cy - r * 20 / 100, r * 85 / 100, TFT_BLUE);
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100);
       for (int i = 0; i < 3; ++i) {
-        const int16_t y = cy + r * (35 + 22 * i) / 100;
-        epaper.drawLine(cx - r * 55 / 100, y, cx + r * 55 / 100, y, TFT_BLACK);
+        const int16_t y = cy + r * (45 + 25 * i) / 100;
+        const int16_t half = r * (i == 1 ? 40 : 55) / 100;
+        thickLine(cx - half, y, cx + half, y, strokeWidth(r), TFT_BLACK);
       }
       return;
 
     case weather::Condition::kRainy:
-      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100, TFT_BLUE);
-      drawFallout(cx, cy + r * 45 / 100, r, 3, TFT_BLUE, false);
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100);
+      drawFallout(cx, cy + r * 45 / 100, r, 3, false);
       return;
 
     case weather::Condition::kPouring:
-      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100, TFT_BLUE);
-      drawFallout(cx, cy + r * 40 / 100, r, 5, TFT_BLUE, false);
+      // Deux rangées décalées plutôt qu'une longue traînée : au-delà de quatre
+      // gouttes de front, l'icône ne tient plus dans son carré.
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100);
+      drawFallout(cx, cy + r * 38 / 100, r, 4, false);
+      drawFallout(cx, cy + r * 62 / 100, r, 3, false);
       return;
 
     case weather::Condition::kLightning: {
-      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100, TFT_BLUE);
-      // Éclair : deux segments qui se replient, en rouge — la seule condition
-      // qui mérite d'attirer l'œil de loin.
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100);
+      // Éclair plein, détouré d'un liseré blanc pour qu'il se détache du nuage
+      // au lieu de s'y fondre.
+      const int16_t s = strokeWidth(r);
       const int16_t top = cy + r * 25 / 100;
       const int16_t mid = cy + r * 55 / 100;
       const int16_t bottom = cy + r * 95 / 100;
-      epaper.drawLine(cx + r * 15 / 100, top, cx - r * 15 / 100, mid, TFT_RED);
-      epaper.drawLine(cx - r * 15 / 100, mid, cx + r * 10 / 100, mid, TFT_RED);
-      epaper.drawLine(cx + r * 10 / 100, mid, cx - r * 20 / 100, bottom, TFT_RED);
+
+      for (int pass = 0; pass < 2; ++pass) {
+        const uint16_t color = pass == 0 ? TFT_WHITE : TFT_BLACK;
+        const int16_t width = pass == 0 ? s * 2 : s;
+        thickLine(cx + r * 15 / 100, top, cx - r * 15 / 100, mid, width, color);
+        thickLine(cx - r * 15 / 100, mid, cx + r * 12 / 100, mid, width, color);
+        thickLine(cx + r * 12 / 100, mid, cx - r * 20 / 100, bottom, width, color);
+      }
       return;
     }
 
     case weather::Condition::kSnowy:
-      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100, TFT_BLUE);
-      // Les flocons sont noirs : du blanc sur fond blanc ne se verrait pas.
-      drawFallout(cx, cy + r * 45 / 100, r, 3, TFT_BLACK, true);
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100);
+      // Flocons évidés, grêlons pleins : sans ce contraste les deux conditions
+      // donnaient exactement le même dessin.
+      drawFallout(cx, cy + r * 45 / 100, r, 3, true, true);
       return;
 
     case weather::Condition::kHail:
-      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100, TFT_BLUE);
-      drawFallout(cx, cy + r * 45 / 100, r, 4, TFT_BLACK, true);
+      drawCloud(cx, cy - r * 25 / 100, r * 85 / 100);
+      drawFallout(cx, cy + r * 45 / 100, r, 3, true);
       return;
 
-    case weather::Condition::kWindy:
+    case weather::Condition::kWindy: {
+      const int16_t s = strokeWidth(r);
       for (int i = 0; i < 3; ++i) {
         const int16_t y = cy + r * (35 * i - 35) / 100;
-        const int16_t length = r * (i == 1 ? 90 : 65) / 100;
-        epaper.drawLine(cx - length, y, cx + length, y, TFT_GREEN);
-        // Le petit crochet suffit à distinguer une bourrasque de trois traits.
-        epaper.drawLine(cx + length, y, cx + length - r * 12 / 100,
-                        y - r * 15 / 100, TFT_GREEN);
+        const int16_t length = r * (i == 1 ? 85 : 60) / 100;
+        thickLine(cx - length, y, cx + length, y, s, TFT_BLACK);
+        // Un crochet discret : plus marqué, les trois traits se lisaient comme
+        // des flèches.
+        thickLine(cx + length, y, cx + length - r * 10 / 100, y - r * 12 / 100, s,
+                  TFT_BLACK);
       }
       return;
+    }
 
-    case weather::Condition::kExceptional:
-      epaper.fillCircle(cx, cy, r * 70 / 100, TFT_RED);
-      epaper.fillRect(cx - r * 8 / 100, cy - r * 40 / 100, r * 16 / 100, r * 50 / 100,
-                      TFT_WHITE);
-      epaper.fillCircle(cx, cy + r * 40 / 100, r * 9 / 100, TFT_WHITE);
+    case weather::Condition::kExceptional: {
+      const int16_t s = strokeWidth(r);
+      epaper.fillCircle(cx, cy, r * 70 / 100, TFT_BLACK);
+      // Point d'exclamation évidé : il tranche sur le disque plein.
+      epaper.fillRect(cx - s / 2 - 1, cy - r * 42 / 100, s + 2, r * 52 / 100, TFT_WHITE);
+      epaper.fillCircle(cx, cy + r * 42 / 100, s / 2 + 1, TFT_WHITE);
       return;
+    }
 
-    case weather::Condition::kUnknown:
+    case weather::Condition::kUnknown: {
       // Un cercle vide plutôt qu'un symbole inventé : la condition est inconnue,
       // l'écran le dit sans prétendre autre chose.
-      epaper.drawCircle(cx, cy, r * 60 / 100, TFT_BLACK);
+      const int16_t s = strokeWidth(r);
+      epaper.fillCircle(cx, cy, r * 60 / 100, TFT_BLACK);
+      epaper.fillCircle(cx, cy, r * 60 / 100 - s, TFT_WHITE);
       return;
+    }
   }
 }
 

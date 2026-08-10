@@ -64,6 +64,21 @@ epaper.drawString("Titre du morceau", x, y);  // sans argument de police
 dans les exemples de la bibliothèque — ne compile pas, elle appartient à un en-tête d'exemple
 et non à `Seeed_GFX`.
 
+## Couleur : les aplats seulement, jamais les traits fins
+
+Les six encres du Spectra 6 ne se comportent pas comme celles d'un écran classique. Une
+**surface large** — un texte de 24 pt, une pochette tramée — sort dans une couleur franche.
+Un **trait de quelques pixels**, lui, est composé par le panneau à partir de ses pigments et
+ressort délavé : les premiers pictogrammes météo, cernés de noir sur 4 px, apparaissaient
+**bruns** sur la photo de contrôle.
+
+D'où la règle retenue : la couleur pour les aplats, le noir et blanc pour tout ce qui se
+dessine au trait. Les pictogrammes météo sont donc monochromes, avec un contour d'au moins
+3 px et jamais moins de 13 % du rayon de l'icône. Le volume du nuage est suggéré par deux
+barres pleines, faute d'un gris que le panneau n'a pas.
+
+Le défaut ne se voit sur aucun aperçu : il faut photographier le panneau.
+
 ## Sources
 
 - [Wiki Seeed — Getting started reTerminal E1002](https://wiki.seeedstudio.com/getting_started_with_reterminal_e1002/)

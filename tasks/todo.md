@@ -99,8 +99,21 @@ d'où l'ajout de `condition` à `weather::View`, couvert par deux tests. Une mé
 n'affiche aucun pictogramme : dessiner un soleil au-dessus de « Météo périmée » reviendrait
 à affirmer ce qu'on vient de démentir.
 
-**À vérifier sur le panneau** : le boîtier n'était pas branché. La photo du README montre
-l'écran *avant* ce changement, avec les pastilles — à refaire après le prochain flash.
+**Validé sur le panneau, après une correction que seul le matériel pouvait révéler.** La
+première version employait les six encres — soleil jaune, nuage bleu, éclair rouge. Sur la
+photo de contrôle, les contours de 4 px ressortaient **bruns** et non noirs : le Spectra 6
+compose un trait fin à partir de ses pigments, et seule une surface large garde une couleur
+franche. Tout est repassé en noir et blanc, avec des traits épaissis de 9 % à 13 % du rayon
+(minimum 3 px). Documenté dans `docs/hardware.md` : la couleur pour les aplats, le
+monochrome pour le trait.
+
+Les douze conditions ont été vérifiées **avant** le flash par un petit rastériseur qui
+rejoue la même géométrie en Python (dans le bac à sable, non versionné) : douze
+rafraîchissements de 37 s pour juger de proportions auraient été absurdes. Il a fait
+apparaître trois défauts — un croissant flanqué d'une pleine lune blanche, des gouttes
+longues comme des barreaux d'échelle, neige et grêle identiques.
+
+La photo du README montre l'écran définitif.
 
 ### Correction de L14 : la compilation cible échouait
 
