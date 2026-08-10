@@ -25,6 +25,11 @@ Il reste :
    timer. Photos et captures HA ne peuvent être produites que sur le boîtier réel ou une
    instance Home Assistant en fonctionnement.
 
+**Chantier ouvert, sur sa propre branche** : `energie/sommeil-entre-sondages` — dormir aussi
+entre deux sondages pendant la lecture, le seul vrai levier sur la consommation. Brief
+complet dans [`tasks/veille-continue.md`](veille-continue.md). À ne fusionner que si la
+mesure à la prise le justifie.
+
 Deux points à ne pas oublier :
 
 - `src/config.h`, `mqtt-user.env`, `*.env` et `test/fixtures/raw/` sont git-ignorés et le
