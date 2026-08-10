@@ -11,6 +11,7 @@
 #include "core/version.h"
 #include "core/layout_plan.h"
 #include "core/pause_timer.h"
+#include "core/sleep_manager.h"
 #include "core/weather_view.h"
 #include "core/zone_picker.h"
 #include "display.h"
@@ -51,10 +52,17 @@ std::string g_forced_zone = ha::kAutoZone;
 
 idle::PauseTimer g_pause_timer;
 
+sleep::SleepManager g_sleep_manager;
+
 // Horodatage du dernier rafraîchissement, au format attendu par Home Assistant
 // (`device_class: timestamp`). Vide tant que l'heure n'a pas été synchronisée :
 // mieux vaut pas de date qu'une date de 1970.
 std::string g_last_refresh_iso;
+
+// Horodatage du dernier appui de bouton, pour détecter une activité utilisateur
+// récente (dans les 2 secondes). Elle réveille du sommeil ou réinitialise le
+// compteur d'inactivité.
+static uint32_t g_last_button_press_ms = 0;
 
 std::string nowIso8601() {
   struct tm local;
@@ -89,6 +97,12 @@ void publishMeasurements(const sensors::Reading& measures) {
 // Applique une commande de transport à la zone affichée. Le rafraîchissement
 // n'est pas déclenché ici : il attend que la rafale d'appuis soit retombée.
 void sendTransport(buttons::Action action) {
+  // Enregistrer l'appui pour déterminer s'il y a une activité utilisateur
+  // récente (réveille du sommeil, réinitialise l'inactivité).
+  if (action != buttons::Action::kNone) {
+    g_last_button_press_ms = millis();
+  }
+
   if (g_last_ip.empty()) {
     Serial.println("[boutons] aucune zone connue, commande ignoree");
     return;
@@ -354,6 +368,26 @@ void loop() {
 
   static uint32_t last_poll_ms = 0;
   static bool first_poll_done = false;
+
+  // Vérifier la décision de sommeil avant tout sondage. L'inactivité se compte
+  // quand rien ne joue; un appui de bouton réveille ou réinitialise le compteur.
+  // `anything_playing` est vrai si au moins une zone sait ce qu'elle joue.
+  const bool anything_playing = !g_last_zone.empty() && !g_last_ip.empty();
+  const bool user_activity_recent =
+      (millis() - g_last_button_press_ms) < 2000UL;
+  const sleep::Decision sleep_decision =
+      g_sleep_manager.updateAndDecide(millis(), anything_playing, user_activity_recent);
+
+  if (sleep_decision.should_sleep && wifi_mgr::isConnected()) {
+    Serial.printf("[sleep] entree en deep sleep pour %u ms\n",
+                  sleep_decision.duration_ms);
+    // Préparer le réveil par timer (60 secondes) et par GPIO4 (appui de bouton).
+    esp_sleep_enable_timer_wakeup(
+        static_cast<uint64_t>(sleep_decision.duration_ms) * 1000ULL);
+    esp_sleep_enable_ext0_wakeup(GPIO_NUM_4, 0);  // GPIO4 actif bas
+    Serial.flush();
+    esp_deep_sleep();  // ne revient jamais ici
+  }
 
   // Demande venue de Home Assistant, traitée hors de la fonction de rappel MQTT.
   if (g_pending_render && wifi_mgr::isConnected()) {
