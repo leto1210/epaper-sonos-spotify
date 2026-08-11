@@ -549,6 +549,7 @@ void loop() {
 
       // `esp_deep_sleep` arme lui-même le réveil par minuterie à partir de la
       // durée qu'on lui passe, en microsecondes. Elle ne revient jamais.
+      mqtt::beforeDeepSleep(decision.duration_ms);
       Serial.flush();
       esp_deep_sleep(static_cast<uint64_t>(decision.duration_ms) * 1000ULL);
     }

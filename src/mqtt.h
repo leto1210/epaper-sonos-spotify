@@ -28,6 +28,12 @@ void publishState(const ha::State& state);
 
 void publishTrack(const ha::Track& track);
 
+// Prépare la disponibilité Home Assistant avant un deep sleep.
+// Sommeil court : conserve `online` en retained, puis fermeture propre de la
+// session pour éviter le testament `offline`.
+// Sommeil long : publie `offline` en retained avant fermeture.
+void beforeDeepSleep(uint32_t sleep_duration_ms);
+
 // Dernière météo reçue de Home Assistant. Le sujet étant retenu par le broker,
 // elle arrive dès l'abonnement, sans attendre la prochaine publication.
 // `valid` reste faux tant que rien n'a été reçu.

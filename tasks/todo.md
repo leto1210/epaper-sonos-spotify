@@ -83,22 +83,24 @@ Branche : `energie/sommeil-entre-sondages`. Brief complet dans [veille-continue.
 
 Objectif : faire dormir le boîtier entre deux sondages, **même pendant la lecture**, pour passer de ~1 W à < 0,3 W en moyenne.
 
-- [ ] **L16** — État RTC étendu
+- [x] **L16** — État RTC étendu (a3e9c56)
       → sérialisation de `g_forced_zone`, `g_last_zone`, `g_last_ip`, PauseTimer, SleepManager
       → 4 tests nouveaux sur ser/deser, intégration dans main.cpp
       → `pio test -e native` + `pio run` au vert
       
-- [ ] **L17** — Réveil par 3 boutons (ext1)
+- [x] **L17** — Réveil par 3 boutons (ext1) (b48e9da)
       → GPIO3, GPIO4, GPIO5 en `ext1`, tous actifs bas
       → `esp_sleep_get_ext1_wakeup_status()` pour identifier le bouton
       → **décision à documenter** : exécuter l'action du bouton réveilleur ou garder « ne pas sauter » ?
       → tests de la logique de réveil
-      
-- [ ] **L18** — Gestion MQTT et disponibilité HA
+        **Décision prise : exécuter l'action du bouton.** Documentée dans `docs/architecture.md`.
+- [x] **L18** — Gestion MQTT et disponibilité HA
       → keepalive adapté à intervalle réaliste (mesure cyclique)
       → publication `online` en `retain`
       → comportement documenté dans `docs/home-assistant.md`
       → entités restent `available` d'un cycle à l'autre
+      → ajout de `mqtt::beforeDeepSleep()` : fermeture propre MQTT, politique
+        `online` retained en sommeil court / `offline` retained en sommeil long
       
 - [ ] **L19** — Mesure réelle et validation
       → flasher, prise ampèremétrique, lecture Sonos continue

@@ -21,6 +21,14 @@ Aucun YAML à écrire côté Home Assistant : l'appareil apparaît tout seul.
   valeur par `value_template` : une publication au lieu de neuf, et des mesures cohérentes
   entre elles puisqu'elles proviennent du même instant.
 
+  Depuis L18, la disponibilité est pilotée avant chaque deep sleep :
+
+  - sommeil court (cycle de sondage) : `online` est republié en retained, puis la session MQTT
+    est fermée proprement. Le broker n'émet donc pas de testament `offline` parasite, et les
+    entités ne clignotent pas entre `available` / `unavailable` d'un réveil à l'autre ;
+  - sommeil long : `offline` est publié en retained avant la fermeture, pour refléter une
+    indisponibilité durable.
+
 Une mesure absente — ADC non lu, SHT4x muet — est **omise** du payload plutôt que publiée à
 zéro : l'entité passe à « inconnu », ce qui est la vérité, au lieu d'annoncer une batterie
 vide ou 0 °C.

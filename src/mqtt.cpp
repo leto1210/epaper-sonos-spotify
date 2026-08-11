@@ -5,6 +5,7 @@
 #include <WiFi.h>
 
 #include "config.h"
+#include "core/mqtt_timing.h"
 #include "core/version.h"
 
 namespace mqtt {
@@ -107,6 +108,11 @@ bool publish(const std::string& topic, const std::string& payload) {
   return g_client.publish(topic.c_str(), payload.c_str(), true);
 }
 
+void publishAvailability(const char* value) {
+  const std::string status = ha::statusTopic(g_device);
+  g_client.publish(status.c_str(), value, true);
+}
+
 }  // namespace
 
 void begin(void (*onCommand)(const ha::Command&)) {
@@ -151,6 +157,30 @@ void publishState(const ha::State& state) {
 
 void publishTrack(const ha::Track& track) {
   publish(ha::trackTopic(g_device), ha::trackPayload(track));
+}
+
+void beforeDeepSleep(uint32_t sleep_duration_ms) {
+  if (!g_enabled || !g_client.connected()) return;
+
+  const mqtt_timing::AvailabilityPolicy policy =
+      mqtt_timing::availabilityPolicyForSleep(sleep_duration_ms);
+
+  if (policy == mqtt_timing::AvailabilityPolicy::kKeepOnlineRetained) {
+    // Sommeil court : garder l'appareil disponible entre deux réveils.
+    publishAvailability("online");
+    Serial.printf("[mqtt] sommeil court (%lu ms), online retained conserve\n",
+                  static_cast<unsigned long>(sleep_duration_ms));
+  } else {
+    // Sommeil long : expliciter l'indisponibilité, sans dépendre d'une coupure
+    // abrupte réseau pour déclencher le testament.
+    publishAvailability("offline");
+    Serial.printf("[mqtt] sommeil long (%lu ms), offline retained publie\n",
+                  static_cast<unsigned long>(sleep_duration_ms));
+  }
+
+  // Fermeture propre : évite un testament `offline` parasite sur les cycles
+  // courts quand le boîtier dort puis revient rapidement.
+  g_client.disconnect();
 }
 
 const weather::Report& weatherReport() { return g_weather; }
