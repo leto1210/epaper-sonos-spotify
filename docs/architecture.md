@@ -74,6 +74,19 @@ pièce.
 | Blanc droit (GPIO4) | Morceau suivant | — |
 | Vert (GPIO3) | Play / Pause | Redraw forcé |
 
+**Au réveil du deep sleep** : les trois boutons réveillent avec `esp_sleep_enable_ext1_wakeup()`.
+`esp_sleep_get_ext1_wakeup_status()` indique lequel, et son action est exécutée immédiatement.
+Justification : si l'utilisateur appuie sur « suivant » pendant une lecture pour changer de
+morceau, il s'attend à un changement dès que le boîtier se réveille, pas à un sondage blanc
+qui le laisserait sur le même morceau une minute de plus. Alternative rejetée : « un réveil
+ne saute jamais de morceau » avait du sens quand seul GPIO4 réveillait, mais avec trois
+boutons, exécuter l'action du bouton réveilleur est plus utile.
+
+Attention : en deep sleep, le bouton est encore enfoncé à la reprise de `setup()`. Le buzzer
+doit biper quand même, sinon l'utilisateur ne saurait pas que l'appui a été reconnu.
+`buttons_io::poll()` détecte l'appui qui se relâche, ce qui survient quelques centaines de
+millisecondes après le réveil. Le bip suit, après la requête réseau — un délai que le boîtier
+en sommeil ne peut pas compenser.
 ## Quand l'écran passe à la météo
 
 Trois cas, tous vérifiés sur le matériel :
@@ -114,8 +127,8 @@ quelques secondes éveillé par minute.
 
 Une fois l'écran météo affiché (c'est-à-dire, rien ne joue), le boîtier compte l'inactivité.
 Au-delà de 10 minutes sans activité musicale, il entre en deep sleep par tranches de 60 s.
-Un sondage s'effectue à chaque réveil du timer. L'appui d'un bouton réveille le boîtier
-immédiatement — c'est le seul retour utilisateur disponible en sommeil.
+Un sondage s'effectue à chaque réveil du timer ou du bouton. Avec `ext1`, les trois boutons
+réveillent et déclenchent leur action.
 
 La consommation en deep sleep doit être mesurée sur le matériel : voir
 [docs/hardware.md](hardware.md).

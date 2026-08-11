@@ -13,6 +13,7 @@
 #include "core/pause_timer.h"
 #include "core/rtc_state.h"
 #include "core/sleep_manager.h"
+#include "core/wakeup.h"
 #include "core/weather_view.h"
 #include "core/zone_picker.h"
 #include "display.h"
@@ -383,7 +384,7 @@ void setup() {
   const esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
   if (wakeup != ESP_SLEEP_WAKEUP_UNDEFINED) {
     Serial.printf("[veille] reveil par %s, %lu rafraichissement(s) deja compte(s)\n",
-                  wakeup == ESP_SLEEP_WAKEUP_EXT0 ? "bouton" : "minuterie",
+                  wakeup == ESP_SLEEP_WAKEUP_TIMER ? "minuterie" : "bouton",
                   static_cast<unsigned long>(g_rtc_refresh_count));
 
     // Restaurer l'état sauvé avant le deep sleep.
@@ -402,6 +403,17 @@ void setup() {
     sleep_state.inactive_since_ms = g_rtc_state.sleep_mgr_inactive_since_ms;
     sleep_state.wake_at_ms = g_rtc_state.sleep_mgr_wake_at_ms;
     g_sleep_manager.deserialize(sleep_state);
+
+      // Si c'est un réveil par bouton (ext1), exécuter l'action du bouton qui a
+      // déclenché. Les trois boutons réveillent maintenant, pas seulement GPIO4.
+      if (wakeup == ESP_SLEEP_WAKEUP_EXT1) {
+        uint32_t ext1_mask = esp_sleep_get_ext1_wakeup_status();
+        buttons::Action button_action = wakeup::wakeupButtonToAction(ext1_mask);
+        if (button_action != buttons::Action::kNone) {
+          Serial.printf("[veille] action bouton au réveil : %d\n", static_cast<int>(button_action));
+          sendTransport(button_action);
+        }
+      }
   }
 
   // Abaisser la fréquence du processeur à 80 MHz a été essayé et abandonné :
@@ -527,9 +539,13 @@ void loop() {
       g_rtc_state.sleep_mgr_inactive_since_ms = sleep_state.inactive_since_ms;
       g_rtc_state.sleep_mgr_wake_at_ms = sleep_state.wake_at_ms;
 
-      // GPIO4 actif bas : c'est aussi le bouton « suivant », mais un réveil ne
-      // saute jamais de morceau — il déclenche un sondage complet.
-      esp_sleep_enable_ext0_wakeup(GPIO_NUM_4, 0);
+      // Trois boutons, GPIO3/4/5, tous actifs bas. Au réveil, esp_sleep_get_ext1_wakeup_status()
+      // indique quel(s) bouton(s) a(ont) déclenché. Décision prise : exécuter l'action du bouton
+      // qui a réveillé. C'est plus utile que de toujours faire un sondage blanc — si l'utilisateur
+      // appuie sur « suivant » pour changer de morceau pendant une lecture, il s'attend à un
+      // changement immédiat, pas à un sondage qui pourrait le laisser sur le même morceau.
+      // Voir docs/architecture.md pour la justification complète et les alternatives rejetées.
+      esp_sleep_enable_ext1_wakeup(wakeup::kExt1MaskAll, ESP_EXT1_WAKEUP_ALL_LOW);
 
       // `esp_deep_sleep` arme lui-même le réveil par minuterie à partir de la
       // durée qu'on lui passe, en microsecondes. Elle ne revient jamais.
