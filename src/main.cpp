@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
+#include <cstring>  // strncpy, pour la sérialisation de l'état RTC
 #include <vector>
 
 #include "albumart.h"

@@ -1,5 +1,9 @@
 #include <unity.h>
 
+// `strlen`. Sur macOS, libc++ l'expose par transitivité ; le GCC de la
+// forge, non. Le défaut ne se voyait donc qu'en intégration continue.
+#include <cstring>
+
 #include "core/pause_timer.h"
 #include "core/sleep_manager.h"
 
