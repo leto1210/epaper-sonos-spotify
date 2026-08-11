@@ -102,11 +102,13 @@ Objectif : faire dormir le boîtier entre deux sondages, **même pendant la lect
       → ajout de `mqtt::beforeDeepSleep()` : fermeture propre MQTT, politique
         `online` retained en sommeil court / `offline` retained en sommeil long
       
-- [ ] **L19** — Mesure réelle et validation
+- [~] **L19** — Mesure réelle et validation
       → flasher, prise ampèremétrique, lecture Sonos continue
       → comparer avant/après
       → décision : fusionner si gain, abandonner avec mesure si rien ne change
       → résultat documenté dans `tasks/veille-continue.md`
+      → **Prête hors matériel.** Guide complet dans [l19-validation.md](l19-validation.md).
+      → En attente d'accès au boîtier branché pour mesure.
 
 ## Revue
 
