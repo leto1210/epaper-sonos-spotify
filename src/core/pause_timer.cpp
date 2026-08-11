@@ -1,5 +1,9 @@
 #include "core/pause_timer.h"
 
+// `strncpy`. L'environnement natif la voit par transitivité depuis libstdc++,
+// la chaîne croisée non : le défaut n'apparaît qu'avec `pio run`.
+#include <cstring>
+
 namespace idle {
 
 void PauseTimer::reset() {
