@@ -16,6 +16,15 @@ void SleepManager::reset() {
   wake_at_ms_ = 0;
 }
 
+SleepManagerState SleepManager::serialize() const {
+  return {inactive_since_ms_, wake_at_ms_};
+}
+
+void SleepManager::deserialize(const SleepManagerState& state) {
+  inactive_since_ms_ = state.inactive_since_ms;
+  wake_at_ms_ = state.wake_at_ms;
+}
+
 Decision SleepManager::updateAndDecide(
     uint32_t now_ms,
     bool anything_playing,

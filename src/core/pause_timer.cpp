@@ -8,6 +8,21 @@ void PauseTimer::reset() {
   zone_.clear();
 }
 
+PauseTimerState PauseTimer::serialize() const {
+  PauseTimerState state;
+  state.paused = paused_;
+  state.paused_since_ms = paused_since_ms_;
+  strncpy(state.zone, zone_.c_str(), sizeof(state.zone) - 1);
+  state.zone[sizeof(state.zone) - 1] = '\0';
+  return state;
+}
+
+void PauseTimer::deserialize(const PauseTimerState& state) {
+  paused_ = state.paused;
+  paused_since_ms_ = state.paused_since_ms;
+  zone_ = state.zone;
+}
+
 bool PauseTimer::expired(uint32_t now_ms, bool playing, const std::string& zone) {
   if (playing) {
     reset();

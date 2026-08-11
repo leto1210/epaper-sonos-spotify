@@ -14,6 +14,13 @@ namespace idle {
 // téléphone, on change de pièce — sans laisser une fiche figée toute la nuit.
 constexpr uint32_t kPauseGraceMs = 5 * 60 * 1000;
 
+// État sérialisable pour deep sleep. Tampons de taille fixe (pas de std::string).
+struct PauseTimerState {
+  bool paused = false;
+  uint32_t paused_since_ms = 0;
+  char zone[32] = {};
+};
+
 class PauseTimer {
  public:
   // À appeler à chaque sondage. Renvoie vrai quand la pause a assez duré pour
@@ -21,6 +28,10 @@ class PauseTimer {
   bool expired(uint32_t now_ms, bool playing, const std::string& zone);
 
   void reset();
+
+  // Sérialisation pour deep sleep.
+  PauseTimerState serialize() const;
+  void deserialize(const PauseTimerState& state);
 
  private:
   bool paused_ = false;

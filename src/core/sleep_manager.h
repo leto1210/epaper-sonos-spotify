@@ -27,6 +27,12 @@ struct Decision {
   uint32_t duration_ms;
 };
 
+// État sérialisable pour deep sleep.
+struct SleepManagerState {
+  uint32_t inactive_since_ms = 0;
+  uint32_t wake_at_ms = 0;
+};
+
 class SleepManager {
  public:
   // À appeler à chaque cycle de sondage. Renvoie la décision de sommeil.
@@ -48,6 +54,10 @@ class SleepManager {
   void resumeAfterWake(uint32_t now_ms);
 
   void reset();
+
+  // Sérialisation pour deep sleep.
+  SleepManagerState serialize() const;
+  void deserialize(const SleepManagerState& state);
 
  private:
   uint32_t inactive_since_ms_ = 0;

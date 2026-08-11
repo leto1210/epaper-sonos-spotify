@@ -11,6 +11,7 @@
 #include "core/version.h"
 #include "core/layout_plan.h"
 #include "core/pause_timer.h"
+#include "core/rtc_state.h"
 #include "core/sleep_manager.h"
 #include "core/weather_view.h"
 #include "core/zone_picker.h"
@@ -46,6 +47,10 @@ const char* stateLabel(sonos::TransportState state) {
 // repartirait de zéro dans Home Assistant à chaque réveil.
 RTC_DATA_ATTR uint32_t g_rtc_shown_hash = 0;
 RTC_DATA_ATTR uint32_t g_rtc_refresh_count = 0;
+
+// État persistent à travers le deep sleep : zone forcée, dernière zone connue,
+// état des timers de pause et de sommeil.
+RTC_DATA_ATTR rtc::State g_rtc_state = {};
 
 // FNV-1a : quelques lignes, une répartition suffisante pour comparer des
 // empreintes. Une collision se traduirait par un rafraîchissement manquant,
@@ -380,6 +385,23 @@ void setup() {
     Serial.printf("[veille] reveil par %s, %lu rafraichissement(s) deja compte(s)\n",
                   wakeup == ESP_SLEEP_WAKEUP_EXT0 ? "bouton" : "minuterie",
                   static_cast<unsigned long>(g_rtc_refresh_count));
+
+    // Restaurer l'état sauvé avant le deep sleep.
+    g_forced_zone = g_rtc_state.forced_zone;
+    g_last_zone = g_rtc_state.last_zone;
+    g_last_ip = g_rtc_state.last_ip;
+
+    idle::PauseTimerState pause_state;
+    pause_state.paused = g_rtc_state.pause_timer_paused;
+    pause_state.paused_since_ms = g_rtc_state.pause_timer_since_ms;
+    strncpy(pause_state.zone, g_rtc_state.pause_timer_zone, sizeof(pause_state.zone) - 1);
+    pause_state.zone[sizeof(pause_state.zone) - 1] = '\0';
+    g_pause_timer.deserialize(pause_state);
+
+    power::SleepManagerState sleep_state;
+    sleep_state.inactive_since_ms = g_rtc_state.sleep_mgr_inactive_since_ms;
+    sleep_state.wake_at_ms = g_rtc_state.sleep_mgr_wake_at_ms;
+    g_sleep_manager.deserialize(sleep_state);
   }
 
   // Abaisser la fréquence du processeur à 80 MHz a été essayé et abandonné :
@@ -484,6 +506,27 @@ void loop() {
     if (decision.should_sleep) {
       Serial.printf("[veille] deep sleep pour %lu ms\n",
                     static_cast<unsigned long>(decision.duration_ms));
+      
+      // Sauvegarder l'état avant le deep sleep pour que le réveil le restaure.
+      strncpy(g_rtc_state.forced_zone, g_forced_zone.c_str(), sizeof(g_rtc_state.forced_zone) - 1);
+      g_rtc_state.forced_zone[sizeof(g_rtc_state.forced_zone) - 1] = '\0';
+      
+      strncpy(g_rtc_state.last_zone, g_last_zone.c_str(), sizeof(g_rtc_state.last_zone) - 1);
+      g_rtc_state.last_zone[sizeof(g_rtc_state.last_zone) - 1] = '\0';
+      
+      strncpy(g_rtc_state.last_ip, g_last_ip.c_str(), sizeof(g_rtc_state.last_ip) - 1);
+      g_rtc_state.last_ip[sizeof(g_rtc_state.last_ip) - 1] = '\0';
+
+      idle::PauseTimerState pause_state = g_pause_timer.serialize();
+      g_rtc_state.pause_timer_paused = pause_state.paused;
+      g_rtc_state.pause_timer_since_ms = pause_state.paused_since_ms;
+      strncpy(g_rtc_state.pause_timer_zone, pause_state.zone, sizeof(g_rtc_state.pause_timer_zone) - 1);
+      g_rtc_state.pause_timer_zone[sizeof(g_rtc_state.pause_timer_zone) - 1] = '\0';
+
+      power::SleepManagerState sleep_state = g_sleep_manager.serialize();
+      g_rtc_state.sleep_mgr_inactive_since_ms = sleep_state.inactive_since_ms;
+      g_rtc_state.sleep_mgr_wake_at_ms = sleep_state.wake_at_ms;
+
       // GPIO4 actif bas : c'est aussi le bouton « suivant », mais un réveil ne
       // saute jamais de morceau — il déclenche un sondage complet.
       esp_sleep_enable_ext0_wakeup(GPIO_NUM_4, 0);

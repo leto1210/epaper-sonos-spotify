@@ -77,6 +77,35 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
       → photo de l'écran météo dans le README ; restent la photo du panneau au mur et
         une capture des entités HA
 
+## Refonte énergie — dormir entre les sondages (11 août 2026)
+
+Branche : `energie/sommeil-entre-sondages`. Brief complet dans [veille-continue.md](veille-continue.md).
+
+Objectif : faire dormir le boîtier entre deux sondages, **même pendant la lecture**, pour passer de ~1 W à < 0,3 W en moyenne.
+
+- [ ] **L16** — État RTC étendu
+      → sérialisation de `g_forced_zone`, `g_last_zone`, `g_last_ip`, PauseTimer, SleepManager
+      → 4 tests nouveaux sur ser/deser, intégration dans main.cpp
+      → `pio test -e native` + `pio run` au vert
+      
+- [ ] **L17** — Réveil par 3 boutons (ext1)
+      → GPIO3, GPIO4, GPIO5 en `ext1`, tous actifs bas
+      → `esp_sleep_get_ext1_wakeup_status()` pour identifier le bouton
+      → **décision à documenter** : exécuter l'action du bouton réveilleur ou garder « ne pas sauter » ?
+      → tests de la logique de réveil
+      
+- [ ] **L18** — Gestion MQTT et disponibilité HA
+      → keepalive adapté à intervalle réaliste (mesure cyclique)
+      → publication `online` en `retain`
+      → comportement documenté dans `docs/home-assistant.md`
+      → entités restent `available` d'un cycle à l'autre
+      
+- [ ] **L19** — Mesure réelle et validation
+      → flasher, prise ampèremétrique, lecture Sonos continue
+      → comparer avant/après
+      → décision : fusionner si gain, abandonner avec mesure si rien ne change
+      → résultat documenté dans `tasks/veille-continue.md`
+
 ## Revue
 
 ### Pictogrammes météo
