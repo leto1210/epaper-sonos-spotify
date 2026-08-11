@@ -25,10 +25,11 @@ Il reste :
    timer. Photos et captures HA ne peuvent être produites que sur le boîtier réel ou une
    instance Home Assistant en fonctionnement.
 
-**Chantier ouvert, sur sa propre branche** : `energie/sommeil-entre-sondages` — dormir aussi
-entre deux sondages pendant la lecture, le seul vrai levier sur la consommation. Brief
-complet dans [`tasks/veille-continue.md`](veille-continue.md). À ne fusionner que si la
-mesure à la prise le justifie.
+**Chantier en cours** : dormir aussi entre deux sondages pendant la lecture, le seul vrai
+levier sur la consommation. Brief dans [`tasks/veille-continue.md`](veille-continue.md).
+L16 à L18 sont livrées sur `main` ; **L19, la mesure, reste à faire** — et c'est elle qui
+décide. Si le coût d'un réveil Wi-Fi approche la durée d'une tranche de sommeil, la bonne
+conclusion est d'allonger l'intervalle de sondage et de revenir en arrière.
 
 Deux points à ne pas oublier :
 

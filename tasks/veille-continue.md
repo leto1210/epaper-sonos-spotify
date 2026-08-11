@@ -1,8 +1,17 @@
 # Refonte énergie : dormir aussi pendant la lecture
 
-Brief de travail pour une session assistée (Copilot / Claude Code), sur la branche
-`energie/sommeil-entre-sondages`. À lire en entier avant d'écrire une ligne : la moitié des
-pièges décrits ici ont déjà coûté une session sur cette base de code.
+Brief de travail pour une session assistée (Copilot / Claude Code). À lire en entier avant
+d'écrire une ligne : la moitié des pièges décrits ici ont déjà coûté une session sur cette
+base de code.
+
+> **État au 11 août 2026.** Les livraisons **L16 à L18** — état RTC étendu, réveil `ext1`
+> sur les trois boutons, disponibilité MQTT — sont faites et fusionnées dans `main`. Elles
+> ont été écrites en parallèle de ce brief, sur `main` directement ; la branche
+> `energie/sommeil-entre-sondages` n'a donc jamais porté que ce document et a été supprimée.
+>
+> **Il reste L19 : la mesure**, décrite dans [`l19-validation.md`](l19-validation.md). C'est
+> elle qui tranche. Voir les critères d'acceptation en fin de page — sans mesure, la refonte
+> n'est pas validée.
 
 ## Le problème
 
