@@ -7,6 +7,7 @@
 #include <string>
 
 #include "core/weather.h"
+#include "core/weather_rtc.h"
 #include "core/weather_view.h"
 
 namespace {
@@ -142,8 +143,55 @@ void test_view_indoor_line_is_independent_of_the_forecast() {
   TEST_ASSERT_TRUE(without_sensor.indoor.empty());
 }
 
+// --- Survie au deep sleep ----------------------------------------------------
+
+// Le boîtier se rendort toutes les minutes. Sans conservation, le bulletin
+// était perdu à chaque réveil et l'écran annonçait « Météo indisponible »
+// alors que la donnée existait.
+void test_report_survives_a_round_trip_through_rtc_memory() {
+  const weather::Report source = fixtureReport();
+  const weather::Report restored = weather::fromRtc(weather::toRtc(source));
+
+  TEST_ASSERT_TRUE(restored.valid);
+  TEST_ASSERT_EQUAL(source.condition, restored.condition);
+  TEST_ASSERT_FLOAT_WITHIN(0.05f, source.temperature_c, restored.temperature_c);
+  TEST_ASSERT_EQUAL_INT(source.humidity_pct, restored.humidity_pct);
+  TEST_ASSERT_EQUAL_INT(source.wind_kmh, restored.wind_kmh);
+  TEST_ASSERT_FLOAT_WITHIN(0.05f, source.uv_index, restored.uv_index);
+  TEST_ASSERT_EQUAL_INT(source.published_at, restored.published_at);
+
+  TEST_ASSERT_EQUAL_UINT(source.hourly.size(), restored.hourly.size());
+  TEST_ASSERT_EQUAL_STRING(source.hourly[0].label.c_str(),
+                           restored.hourly[0].label.c_str());
+  TEST_ASSERT_FLOAT_WITHIN(0.05f, source.hourly[2].precipitation_mm,
+                           restored.hourly[2].precipitation_mm);
+}
+
+// Au tout premier démarrage, la mémoire RTC contient n'importe quoi. Elle ne
+// doit pas passer pour un bulletin.
+void test_uninitialised_rtc_memory_is_not_a_report() {
+  weather::RtcReport garbage;
+  garbage.magic = 0xDEADBEEF;
+  garbage.temperature_dc = 999;
+  TEST_ASSERT_FALSE(weather::fromRtc(garbage).valid);
+
+  // Un rapport invalide ne s'écrit pas non plus : il écraserait le précédent.
+  TEST_ASSERT_FALSE(weather::fromRtc(weather::toRtc(weather::Report{})).valid);
+}
+
+// L'horodatage doit traverser intact, sinon le contrôle de péremption devient
+// faux au premier réveil.
+void test_publication_timestamp_is_preserved() {
+  const weather::Report restored = weather::fromRtc(weather::toRtc(fixtureReport()));
+  TEST_ASSERT_FALSE(weather::isStale(restored, kFixtureNow));
+  TEST_ASSERT_TRUE(weather::isStale(restored, kFixtureNow + 86400));
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_report_survives_a_round_trip_through_rtc_memory);
+  RUN_TEST(test_uninitialised_rtc_memory_is_not_a_report);
+  RUN_TEST(test_publication_timestamp_is_preserved);
   RUN_TEST(test_parses_current_conditions);
   RUN_TEST(test_parses_hourly_forecast);
   RUN_TEST(test_detects_stale_report);

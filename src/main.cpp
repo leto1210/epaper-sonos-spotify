@@ -15,6 +15,7 @@
 #include "core/rtc_state.h"
 #include "core/sleep_manager.h"
 #include "core/wakeup.h"
+#include "core/weather_rtc.h"
 #include "core/weather_view.h"
 #include "core/zone_picker.h"
 #include "display.h"
@@ -96,7 +97,15 @@ bool g_anything_playing = false;
 // Horodatage du dernier rafraîchissement, au format attendu par Home Assistant
 // (`device_class: timestamp`). Vide tant que l'heure n'a pas été synchronisée :
 // mieux vaut pas de date qu'une date de 1970.
-std::string g_last_refresh_iso;
+// En mémoire RTC pour la même raison que l'empreinte : sans cela, l'entité
+// « Dernier rafraîchissement » de Home Assistant retombait sur « inconnu » dès
+// le premier sommeil, puisque plus aucun réveil ne redessine.
+RTC_DATA_ATTR char g_rtc_last_refresh_iso[40] = {};
+
+// Dernier bulletin météo reçu. Voir core/weather_rtc : il vient du réseau mais
+// doit survivre au sommeil, la livraison du sujet retenu ne tenant pas toujours
+// dans les quelques secondes d'éveil.
+RTC_DATA_ATTR weather::RtcReport g_rtc_weather = {};
 
 // Horodatage du dernier appui de bouton, pour détecter une activité utilisateur
 // récente (dans les 2 secondes). Elle réveille du sommeil ou réinitialise le
@@ -109,6 +118,13 @@ std::string nowIso8601() {
   char buffer[32];
   strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S%z", &local);
   return buffer;
+}
+
+void rememberRefreshTime() {
+  const std::string now = nowIso8601();
+  if (now.empty()) return;  // heure pas encore synchronisée : ne rien écraser
+  std::strncpy(g_rtc_last_refresh_iso, now.c_str(), sizeof(g_rtc_last_refresh_iso) - 1);
+  g_rtc_last_refresh_iso[sizeof(g_rtc_last_refresh_iso) - 1] = '\0';
 }
 
 // Remonte les mesures à Home Assistant, indépendamment de l'écran : celui-ci
@@ -127,7 +143,7 @@ void publishMeasurements(const sensors::Reading& measures) {
   state.rssi_dbm = WiFi.RSSI();
   state.uptime_s = millis() / 1000;
   state.refresh_count = static_cast<int>(display::refreshCount());
-  state.last_refresh_iso = g_last_refresh_iso;
+  state.last_refresh_iso = g_rtc_last_refresh_iso;
   state.selected_zone = g_forced_zone;
 
   mqtt::publishState(state);
@@ -207,9 +223,29 @@ void onHomeAssistantCommand(const ha::Command& command) {
 // empreinte, et pas de rafraîchissement si rien n'a bougé.
 void renderWeather() {
   const sensors::Reading measures = sensors::read();
-  const weather::View view = weather::plan(mqtt::weatherReport(), time(nullptr),
-                                           measures.has_climate, measures.temperature_c,
+
+  // Le bulletin vient du réseau, mais il doit survivre au deep sleep : le
+  // sujet MQTT est retenu, l'abonnement le renvoie — sans que la livraison
+  // tienne toujours dans les trois secondes d'éveil. Sans conservation,
+  // l'écran annonçait « Météo indisponible » alors que la donnée existait.
+  weather::Report report = mqtt::weatherReport();
+  if (report.valid) {
+    g_rtc_weather = weather::toRtc(report);
+  } else {
+    report = weather::fromRtc(g_rtc_weather);
+  }
+
+  const weather::View view = weather::plan(report, time(nullptr), measures.has_climate,
+                                           measures.temperature_c,
                                            measures.humidity_pct);
+
+  // Un écran déjà juste ne se remplace pas par un aveu d'ignorance : au tout
+  // premier démarrage il n'y a rien à préserver, ensuite il vaut mieux garder
+  // le dernier bulletin connu que d'afficher « Météo indisponible ».
+  if (!report.valid && g_rtc_shown_hash != 0) {
+    Serial.println("[meteo] aucun bulletin, ecran conserve");
+    return;
+  }
 
   // L'empreinte ne retient que ce qui se voit : deux relevés successifs à
   // 32,58 et 32,62 °C ne valent pas 37 s de rafraîchissement.
@@ -227,7 +263,7 @@ void renderWeather() {
   display::showWeather(view, status);
   g_rtc_shown_hash = fingerprintHash(fingerprint);
   g_rtc_refresh_count = display::refreshCount();
-  g_last_refresh_iso = nowIso8601();
+  rememberRefreshTime();
   publishMeasurements(measures);
 }
 
@@ -368,7 +404,7 @@ void pollAndRender() {
   display::showTrack(track, status, art);
   g_rtc_shown_hash = fingerprintHash(fingerprint);
   g_rtc_refresh_count = display::refreshCount();
-  g_last_refresh_iso = nowIso8601();
+  rememberRefreshTime();
   publishMeasurements(measures);
 }
 
