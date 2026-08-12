@@ -22,7 +22,76 @@ std::vector<ZoneStatus> maison() {
 
 const std::vector<std::string> kPriorite = {"Salon", "Bureau", "Cuisine"};
 
+// La vraie maison, telle que le boîtier la voit : huit zones, dont un Beam
+// branché sur la télévision et une enceinte laissée en pause. Les noms sont
+// ceux de l'application Sonos, préfixe compris.
+std::vector<ZoneStatus> maisonReelle() {
+  return {
+      {"uuid-cui", "Sonos Cuisine", "192.0.2.47", TransportState::kStopped},
+      {"uuid-bur", "Sonos Bureau", "192.0.2.46", TransportState::kStopped},
+      {"uuid-cha", "Sonos Chambre Parent", "192.0.2.48", TransportState::kStopped},
+      {"uuid-val", "Sonos Chambre Valentin", "192.0.2.49", TransportState::kStopped},
+      {"uuid-sdb", "Sonos Salle De Bain", "192.0.2.50", TransportState::kStopped},
+      {"uuid-hol", "Sonos Holiday", "192.0.2.41", TransportState::kPaused},
+      {"uuid-sej", "Sonos Séjour", "192.0.2.44", TransportState::kPlaying},
+      {"uuid-bea", "Sonos Beam", "192.0.2.40", TransportState::kPlaying},
+  };
+}
+
+const std::vector<std::string> kPrioriteReelle = {"Sonos Séjour", "Sonos Beam",
+                                                  "Sonos Cuisine"};
+
 }  // namespace
+
+// Cas nominal du foyer : de la musique passe au Séjour. Le Beam annonce lui
+// aussi PLAYING parce qu'il diffuse le son de la télévision, et Holiday est
+// resté en pause depuis la veille.
+void test_music_playing_in_the_living_room_wins() {
+  const sonos::Choice choice = sonos::pickZone(maisonReelle(), kPrioriteReelle);
+
+  TEST_ASSERT_TRUE(choice.found);
+  TEST_ASSERT_EQUAL_STRING("Sonos Séjour", choice.name.c_str());
+  TEST_ASSERT_EQUAL_STRING("192.0.2.44", choice.ip.c_str());
+  TEST_ASSERT_TRUE(choice.playing);
+}
+
+// Le Beam n'est pas éliminé ici : la topologie ne dit pas qu'il diffuse la
+// télévision, seul `GetPositionInfo` le révélera. Il doit donc rester dans le
+// classement, derrière le Séjour, comme repli — et la zone en pause après lui.
+void test_living_room_ranks_ahead_of_the_tv_and_the_paused_speaker() {
+  const std::vector<sonos::Choice> ranked =
+      sonos::rankZones(maisonReelle(), kPrioriteReelle);
+
+  TEST_ASSERT_TRUE(ranked.size() >= 3);
+  TEST_ASSERT_EQUAL_STRING("Sonos Séjour", ranked[0].name.c_str());
+  TEST_ASSERT_EQUAL_STRING("Sonos Beam", ranked[1].name.c_str());
+  TEST_ASSERT_TRUE(ranked[1].playing);  // le Beam « joue » : c'est la télévision
+
+  bool holiday_present = false;
+  for (const sonos::Choice& candidate : ranked) {
+    if (candidate.name == "Sonos Holiday") {
+      holiday_present = true;
+      TEST_ASSERT_FALSE(candidate.playing);  // en pause, et honnêtement annoncé
+    }
+  }
+  TEST_ASSERT_TRUE(holiday_present);
+}
+
+// Si le Séjour s'arrête, l'écran ne doit pas rester bloqué dessus : le Beam
+// prend la tête, et c'est `GetPositionInfo` qui l'écartera comme source
+// télévision, laissant place à la zone en pause puis à la météo.
+void test_when_the_living_room_stops_the_ranking_moves_on() {
+  std::vector<ZoneStatus> zones = maisonReelle();
+  for (ZoneStatus& zone : zones) {
+    if (zone.name == "Sonos Séjour") zone.state = TransportState::kStopped;
+  }
+
+  const std::vector<sonos::Choice> ranked =
+      sonos::rankZones(zones, kPrioriteReelle, "Sonos Séjour");
+
+  TEST_ASSERT_EQUAL_STRING("Sonos Beam", ranked[0].name.c_str());
+  TEST_ASSERT_EQUAL_STRING("Sonos Holiday", ranked[1].name.c_str());
+}
 
 void test_prefers_configured_priority_among_playing_zones() {
   // Le Salon est prioritaire mais à l'arrêt : c'est le Bureau qui gagne, pas la
@@ -179,6 +248,9 @@ void test_auto_is_not_a_zone_name() {
 
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_music_playing_in_the_living_room_wins);
+  RUN_TEST(test_living_room_ranks_ahead_of_the_tv_and_the_paused_speaker);
+  RUN_TEST(test_when_the_living_room_stops_the_ranking_moves_on);
   RUN_TEST(test_prefers_configured_priority_among_playing_zones);
   RUN_TEST(test_falls_back_to_any_playing_zone);
   RUN_TEST(test_paused_zone_still_counts_as_current);

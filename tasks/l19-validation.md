@@ -76,6 +76,13 @@ donc chiffre plus proche de **0,15–0,2 W** en conditions réelles.
 - [ ] Serial USB branché ET **détaché juste avant mesure** (DTR/RTS réinitialise la cible)
 - [ ] Multimètre prêt, calibré en DC 5V/2A
 - [ ] Sonos en réseau, une zone accessible
+- [ ] **Lecture en cours au Sonos Séjour**, et non sur une zone en pause. C'est le cas
+      nominal — celui que la mesure doit refléter — et c'est aussi le pire pour la
+      consommation : tant que la musique tourne, le boîtier ne s'endort pas au titre de
+      l'inactivité. Mesurer sur une maison silencieuse donnerait un chiffre flatteur et faux.
+      Attention à la maison réelle : le Beam annonce `PLAYING` dès qu'il diffuse le son de la
+      télévision, et une enceinte laissée en pause reste candidate. Vérifier sur la console
+      que la zone retenue est bien `Sonos Séjour` avant de lancer le chronomètre.
 - [ ] HA + MQTT en fonctionnement
 - [ ] Topic `reterminal_sonos/status` dans HA, capteur rafraîchissements visible
 
