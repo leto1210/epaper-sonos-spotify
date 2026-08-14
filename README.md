@@ -27,7 +27,17 @@ température intérieure mesurée par le boîtier lui-même. Les données vienne
 Assistant par MQTT — le boîtier ne l'interroge jamais, il écoute. Les pictogrammes sont
 dessinés au trait, en noir et blanc : voir [docs/hardware.md](docs/hardware.md) pour la
 raison, qui tient au panneau.*
-- Fonctionne sur batterie : l'écran n'est redessiné que lorsque le morceau change
+
+- Écran dédié pour une zone branchée sur son **entrée ligne** — platine, ampli : Sonos n'en
+  livre aucune métadonnée, mais il y a du son, et l'écran le dit plutôt que d'afficher la
+  météo comme si la maison était silencieuse
+
+![L'écran d'entrée ligne](docs/images/line-in.jpg)
+
+- Fonctionne sur batterie : l'écran n'est redessiné que lorsque le morceau change, et le
+  boîtier s'endort par tranches d'une minute quand plus rien ne joue — **0,050 W** de moyenne
+  mesurés contre 0,31 W éveillé, soit environ six jours d'autonomie au repos et vingt-quatre
+  heures en lecture continue
 
 ## Matériel
 
@@ -71,6 +81,10 @@ Détails de compilation, génération de `driver.h` et dépannage : [docs/build.
 - Spotify Connect ne fournit les métadonnées **que pendant la lecture effective** : une
   enceinte mise en pause ne dit plus ce qu'elle joue. Le boîtier conserve donc la dernière
   fiche connue, jusqu'à la bascule sur la météo.
+- Les polices embarquées ne couvrent que l'ASCII. Les accents et la ponctuation typographique
+  sont **repliés** avant affichage — « Séjour » devient « Sejour », « œuvre » devient
+  « oeuvre » — parce que sans cela le caractère serait supprimé sans avertissement. Les noms
+  exacts partent intacts vers Home Assistant.
 - Sonos S2 uniquement (l'API UPnP locale de S1 diffère et n'est pas testée).
 - La découverte SSDP repose sur du multicast : elle ne fonctionne que si le boîtier et les
   enceintes partagent le même sous-réseau. Si le boîtier est sur un VLAN « objets

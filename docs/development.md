@@ -73,11 +73,24 @@ fait hors ligne et ce qui exige le matériel.
 | L11-L12 MQTT, Home Assistant | construction des payloads, analyse des commandes reçues | broker |
 | L13 météo | **tout** : parseur, mise en forme, template Jinja | broker |
 | L14 veille, deep sleep | logique de transition | consommation, réveil |
+| L16-L18 état RTC, réveil `ext1`, MQTT | sérialisation, décodage du réveil | cycle réel |
+| L19 mesure d'énergie | — | **tout** : il faut un wattmètre et la batterie retirée |
+| Entrée ligne | reconnaissance de la source | rendu du disque |
+| Repli ASCII | **tout** : accents, ligatures, ponctuation | — |
 
 Le délai de grâce sur pause (`core/pause_timer`) illustre la règle : il ne voit qu'une horloge
 et un état, donc ses six tests couvrent la reprise, le changement de pièce et le débordement
 de `millis()` sans qu'aucune enceinte soit branchée. Seule la bascule d'écran demandait le
 matériel.
+
+`core/text_fold` en est le cas extrême : le défaut se voyait sur une photo du panneau — un
+accent manquant — mais se corrige et se vérifie **entièrement** hors matériel, y compris le
+cas d'une séquence UTF-8 tronquée.
+
+À l'inverse, `core/weather_rtc` rappelle la limite de l'exercice : sa sérialisation se teste
+sur le Mac, mais le défaut qu'elle corrige — un bulletin perdu à chaque réveil — n'était
+visible qu'en photographiant l'écran, qui annonçait « Météo indisponible » alors que la donnée
+existait.
 
 Quand une livraison est « **tout** » hors ligne, elle doit l'être vraiment : si son test a
 besoin du matériel, c'est que la logique est au mauvais endroit.
@@ -113,4 +126,7 @@ prétendre les couvrir :
   en la regardant, mais le rendu final sur Spectra 6 diffère — les couleurs sont peu
   saturées et les aplats se comportent autrement qu'à l'écran.
 - **Le temps de rafraîchissement** — 37 s mesurées, à comparer aux 25-30 s annoncées.
-- **La consommation.** Toute affirmation sur l'autonomie demande une mesure.
+- **La consommation.** Toute affirmation sur l'autonomie demande une mesure — et une mesure
+  prise dans les bonnes conditions : batterie branchée, le chargeur limite le courant
+  d'entrée et masque entièrement l'activité du processeur. Relevé et méthode dans
+  [`tasks/l19-validation.md`](../tasks/l19-validation.md), outil dans `tools/powerz_log.py`.

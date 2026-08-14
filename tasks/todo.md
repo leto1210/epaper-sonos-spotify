@@ -123,6 +123,48 @@ sommeil quand rien ne joue est mesuré et acquis ; la part « pendant la lecture
 
 ## Revue
 
+### Entrée ligne, accents, et météo perdue au réveil (14 août 2026)
+
+Trois défauts trouvés le même jour, tous sur le matériel, aucun visible autrement.
+
+**Le Séjour diffusait par sa prise ligne et l'écran affichait la météo.** Sonos ne livre
+aucune métadonnée dans ce mode : ni titre, ni artiste, ni pochette. Un écran dédié montre
+désormais un disque vinyle et le nom de la pièce. Le cas passe avant la météo, mais après
+toute zone qui sait ce qu'elle joue. Détail mesuré : le Séjour s'annonce `PAUSED_PLAYBACK`
+pendant que la platine tourne — Sonos ne « joue » pas une entrée ligne comme un morceau —
+donc l'écran s'affiche quel que soit l'état, mais l'entrée ligne ne compte comme lecture, et
+donc comme raison de rester éveillé, que si elle annonce vraiment `PLAYING`.
+
+**« Sonos Séjour » s'affichait « Sonos Sjour ».** Les FreeFonts d'Adafruit ne couvrent que
+l'ASCII et suppriment le reste **sans avertissement** — le même piège que les polices
+numérotées, déjà documenté, mais frappant cette fois du texte venu du réseau. Il ne touchait
+pas que les noms de zones : un titre français y perdait ses lettres une à une, et les
+apostrophes courbes comme les tirets longs disparaissaient de même. `core/text_fold` replie
+accents, ligatures et ponctuation, avec sept tests.
+
+**« Météo indisponible » alors que l'automatisation publiait.** Depuis que le boîtier se
+rendort toutes les minutes, il ne reste éveillé que trois secondes ; le bulletin vivait en
+RAM et repartait à zéro à chaque réveil. Le sujet MQTT est retenu et l'abonnement le renvoie,
+mais la livraison ne tient pas toujours dans cette fenêtre. L16 avait sauvé la zone et les
+minuteries, pas le bulletin ni l'horodatage du dernier rafraîchissement.
+
+### Mesure d'énergie : ce que la prise USB cachait
+
+Le premier relevé annonçait 1 W, puis 2,2 W. Les deux étaient faux, pour la même raison : le
+chargeur du reTerminal limite le courant d'entrée, et quand l'ESP32 consomme plus il prend
+d'autant moins pour la batterie. Un rafraîchissement complet de 37 s en devenait
+**invisible** — 2,211 W au repos contre 2,220 W pendant. C'est ce détail, et non un capteur
+défaillant, qui rendait le protocole de L19 inopérant.
+
+Batterie retirée, la même mesure donne **0,31 W** éveillé et **0,050 W** en cycle de sommeil.
+Deux surprises au passage : le rafraîchissement de l'ePaper, soupçonné d'être le poste
+coûteux, n'ajoute qu'un dixième de watt — c'est la radio qui domine ; et le plancher de deep
+sleep vaut 5,4 mA, très au-dessus des microampères d'un ESP32-S3, parce que la carte garde
+son pont série et ses régulateurs alimentés.
+
+Cela valide rétrospectivement le retrait de la réduction du processeur à 80 MHz : elle
+allongeait le rafraîchissement de 3,7 s pour économiser sur un poste négligeable.
+
 ### Pictogrammes météo
 
 Les pastilles de couleur disaient la famille de temps sans la nommer. Elles sont remplacées
