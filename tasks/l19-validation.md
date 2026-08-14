@@ -1,6 +1,6 @@
 # L19 — Validation énergie sur matériel
 
-**État** : Préparée hors ligne, en attente d'accès au boîtier branché.
+**État** : **mesurée le 14 août 2026.** Résultats et verdict en fin de page.
 
 ## Objectif
 
@@ -8,7 +8,8 @@ Mesurer et comparer la consommation réelle avant/après refonte énergie. C'est
 cœur du brief : sans cette mesure, la refonte n'a aucune raison d'être, et ne doit pas être
 fusionnée dans `main`.
 
-Branche : `energie/sommeil-entre-sondages`. Code de L16 à L18 : `pio test -e native` ✓.
+L16 à L18 sont sur `main` ; la branche `energie/sommeil-entre-sondages` a été fusionnée
+puis supprimée.
 
 ## Prérequis matériel
 
@@ -16,7 +17,7 @@ Branche : `energie/sommeil-entre-sondages`. Code de L16 à L18 : `pio test -e na
 - **Multimètre ou pince ampèremétrique** à la prise 5V
 - **Home Assistant** en fonctionnement avec Mosquitto MQTT
 - **Sonos** avec au minimum une zone jouant Spotify
-- **Batterie chargée** du boîtier (2000 mAh, 7,4 Wh)
+- **Batterie retirée** — voir la checklist, c'est la condition sans laquelle la mesure ment
 - **Durée** : 15 min + 10 min par mesure = ~45 min total
 
 ## Plan de mesure
@@ -171,63 +172,65 @@ Pas de gain ou régression.
 → Considérer alternative : intervalle de sondage plus long au lieu de sleep court.
 ```
 
-## Mesures et résultats
+## Mesures et résultats — 14 août 2026
 
-À remplir **sur le terrain** avec les valeurs réelles :
+Relevé au POWER-Z KM003C, **batterie retirée** (voir les prérequis : batterie branchée, la
+mesure ne veut rien dire), boîtier alimenté par le Mac, entrée ligne au Séjour donc rien à
+afficher — le cas où la veille s'applique.
 
-### Baseline (L14)
+### Consommation mesurée
 
-| Grandeur | Valeur | Unité | Commentaires |
+| Régime | Puissance | Part du temps |
+|---|---|---|
+| Plancher de deep sleep | **0,0284 W** | 91 % |
+| Pointes d'éveil (Wi-Fi, sondage) | 0,287 W | 8 % |
+| **Moyenne du cycle** | **0,0501 W** | — |
+| Éveil permanent, pour comparaison | **0,31 W** | — |
+| Rafraîchissement de l'écran (37 s) | 0,34 W | — |
+
+Huit réveils en neuf minutes, soit un toutes les 67 s : la tranche de 60 s plus environ sept
+secondes d'éveil. Le cycle fonctionne exactement comme prévu.
+
+### Autonomie sur la batterie de 2000 mAh (~7,4 Wh)
+
+| Situation | Autonomie |
+|---|---|
+| Lecture continue (jamais de sommeil) | **24 h** |
+| Rien ne joue, cycle de sommeil | **148 h**, soit six jours |
+
+### Verdict
+
+**Le cycle de sommeil divise la consommation par 6,2** quand rien ne joue. À conserver.
+
+Mais il faut être exact sur ce que L16-L18 ont apporté. Le sommeil après dix minutes
+d'inactivité existait déjà en L14. Ce que ces livraisons ont ajouté, c'est **de le rendre
+utilisable** : sans l'état conservé en mémoire RTC, chaque réveil redessinait l'écran pendant
+37 s ; sans `resumeAfterWake`, le boîtier restait éveillé dix minutes pour une minute de
+sommeil. Le gain mesuré ici est donc bien le leur, mais par correction de défauts, pas par
+une mécanique nouvelle.
+
+**L'objectif affiché du brief — dormir aussi entre deux sondages pendant la lecture — n'est
+pas implémenté.** Tant que la musique joue, le boîtier reste à 0,31 W.
+
+### Ce que gagnerait la suite, et ce qu'elle coûterait
+
+En extrapolant depuis les sept secondes d'éveil mesurées :
+
+| Intervalle de sondage pendant la lecture | Moyenne estimée | Autonomie | Retard sur un changement de morceau |
 |---|---|---|---|
-| Tension moyenne | — | V | |
-| Intensité moyenne | — | A | |
-| Puissance moyenne | — | W | |
-| Min / Max | — | W | |
-| Durée mesure | — | min | |
-| Zone affichée | — | — | (Salon, Cuisine, …) |
-| Morceau joué | — | — | (titre, artiste) |
-| Statut HA | — | — | (available / unavailable) |
+| aucun sommeil (aujourd'hui) | 0,31 W | 24 h | immédiat, puis 37 s de rendu |
+| 20 s | ~0,095 W | ~78 h | jusqu'à 20 s, puis 37 s |
+| 60 s | ~0,055 W | ~135 h | jusqu'à 60 s, puis 37 s |
 
-### Refonte (L18)
+Le sondage de 20 s garde une réactivité honnête pour un écran qui met déjà 37 s à se
+redessiner, et gagne un facteur trois. Au-delà, on gagne peu et on attend beaucoup.
 
-| Grandeur | Valeur | Unité | Commentaires |
-|---|---|---|---|
-| Tension moyenne | — | V | |
-| Intensité moyenne | — | A | |
-| Puissance moyenne | — | W | |
-| Min / Max | — | W | |
-| Durée mesure | — | min | |
-| Zone affichée | — | — | (même que L14) |
-| Morceau joué | — | — | (même que L14) |
-| Statut HA | — | — | (doit rester available) |
-| Compteur refresh | — | — | (doit stagner) |
-| Cycles visibles | — | (Y/N) | (s'endort et se réveille ?) |
+### La limite qu'aucun firmware ne franchira
 
-### Analyse
+Le plancher mesuré est de **0,0284 W, soit 5,4 mA sous 5,24 V** — très au-dessus des quelques
+microampères d'un ESP32-S3 en deep sleep. Ce n'est pas le processeur : c'est la carte, avec
+son pont série CH340, ses régulateurs et son circuit de charge. Aucune optimisation du
+firmware ne descendra sous ce plancher tant que le boîtier est alimenté par l'USB.
 
-| Metrique | Formule | Valeur | Verdict |
-|---|---|---|---|
-| Économie (%) | `(1 - W_refonte/W_baseline) × 100` | — % | (>20% OK ?) |
-| Ratio | `W_baseline / W_refonte` | — × | (>1.5 OK ?) |
-| Durée batterie avant | `7.4 Wh / W_baseline` | — h | (ref. ~7 h) |
-| Durée batterie après | `7.4 Wh / W_refonte` | — h | (target > 15 h) |
-
-## Conclusion
-
-À remplir après mesure :
-
----
-
-**Date** : \_\_\_\_\_\_\_\_\_\_\_\_\_
-
-**Observateur** : \_\_\_\_\_\_\_\_\_\_\_\_\_
-
-**Verdict** : ☐ FUSIONNER ☐ ABANDONNER
-
-**Justification** :
-
-(Décrire brièvement : gain réel vs objectif, pièges rencontrés, recommandations.)
-
----
-
-**Pièces jointes** : logs console, captures HA, photos multimètre (optionnel).
+C'est aussi ce qui borne le bénéfice de toute suite : dormir plus longtemps rapproche de
+0,028 W, jamais de zéro.

@@ -25,11 +25,14 @@ Il reste :
    timer. Photos et captures HA ne peuvent être produites que sur le boîtier réel ou une
    instance Home Assistant en fonctionnement.
 
-**Chantier en cours** : dormir aussi entre deux sondages pendant la lecture, le seul vrai
-levier sur la consommation. Brief dans [`tasks/veille-continue.md`](veille-continue.md).
-L16 à L18 sont livrées sur `main` ; **L19, la mesure, reste à faire** — et c'est elle qui
-décide. Si le coût d'un réveil Wi-Fi approche la durée d'une tranche de sommeil, la bonne
-conclusion est d'allonger l'intervalle de sondage et de revenir en arrière.
+**Refonte énergie : mesurée, et conservée.** Le cycle de sommeil divise la consommation par
+6,2 quand rien ne joue — 0,050 W contre 0,31 W éveillé. Relevé complet dans
+[`tasks/l19-validation.md`](l19-validation.md).
+
+Reste ouvert, et c'était l'objectif affiché du brief : **dormir aussi pendant la lecture**.
+Tant que la musique joue, le boîtier tient 0,31 W. Un sommeil entre sondages de 20 s
+ramènerait à ~0,095 W, au prix d'un retard pouvant aller jusqu'à 20 s sur un changement de
+morceau — à mettre en regard des 37 s que met déjà l'écran à se redessiner.
 
 Deux points à ne pas oublier :
 
@@ -85,9 +88,11 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
 
 ## Refonte énergie — dormir entre les sondages (11 août 2026)
 
-Branche : `energie/sommeil-entre-sondages`. Brief complet dans [veille-continue.md](veille-continue.md).
+Brief complet dans [veille-continue.md](veille-continue.md). La branche
+`energie/sommeil-entre-sondages` a été fusionnée dans `main` puis supprimée.
 
-Objectif : faire dormir le boîtier entre deux sondages, **même pendant la lecture**, pour passer de ~1 W à < 0,3 W en moyenne.
+Objectif : faire dormir le boîtier entre deux sondages, **même pendant la lecture**. Le
+sommeil quand rien ne joue est mesuré et acquis ; la part « pendant la lecture » ne l'est pas.
 
 - [x] **L16** — État RTC étendu (a3e9c56)
       → sérialisation de `g_forced_zone`, `g_last_zone`, `g_last_ip`, PauseTimer, SleepManager
@@ -108,13 +113,13 @@ Objectif : faire dormir le boîtier entre deux sondages, **même pendant la lect
       → ajout de `mqtt::beforeDeepSleep()` : fermeture propre MQTT, politique
         `online` retained en sommeil court / `offline` retained en sommeil long
       
-- [~] **L19** — Mesure réelle et validation
-      → flasher, prise ampèremétrique, lecture Sonos continue
-      → comparer avant/après
-      → décision : fusionner si gain, abandonner avec mesure si rien ne change
-      → résultat documenté dans `tasks/veille-continue.md`
-      → **Prête hors matériel.** Guide complet dans [l19-validation.md](l19-validation.md).
-      → En attente d'accès au boîtier branché pour mesure.
+- [x] **L19** — Mesure réelle et validation (14 août 2026)
+      → cycle de sommeil : **0,050 W** de moyenne, contre **0,31 W** éveillé — facteur 6,2
+      → plancher de deep sleep 0,028 W, pointes d'éveil 0,287 W, un réveil toutes les 67 s
+      → autonomie : 24 h en lecture continue, 148 h quand rien ne joue
+      → **la mesure n'a de sens que batterie retirée** : branchée, le chargeur limite le
+        courant d'entrée et un rafraîchissement de 37 s devient invisible
+      → relevé complet et verdict dans [l19-validation.md](l19-validation.md)
 
 ## Revue
 
