@@ -62,6 +62,14 @@ Sans cette précaution, un boîtier dont on avait retiré la batterie continuait
 | Rafraîchir l'écran | `button` | déclenche un redraw immédiat |
 | Zone suivie | `select` | `auto` ou une pièce précise |
 
+![La page de l'appareil dans Home Assistant](images/ePaper_HA_MQTT.png)
+
+*Ce que produit la découverte, sans une ligne de YAML : Home Assistant regroupe de lui-même
+les entités en Contrôles, Capteurs et Diagnostic. La ligne « Micrologiciel » vient du bloc
+`device` publié par le boîtier — c'est elle qui permet de vérifier qu'une mise à jour a bien
+pris. « Temps de fonctionnement : 2,00 s » n'est pas un redémarrage : le boîtier sort d'un
+deep sleep, où `millis()` repart de zéro.*
+
 Le sélecteur est alimenté par la **topologie réelle**, pas par `SONOS_ZONE_PRIORITY` : sa
 découverte est republiée avec les noms des pièces dès le premier sondage. Il ne propose donc
 que `auto` pendant les quelques secondes qui suivent la connexion.

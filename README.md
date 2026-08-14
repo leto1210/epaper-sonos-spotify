@@ -62,6 +62,21 @@ pio run -t upload -t monitor
 
 Détails de compilation, génération de `driver.h` et dépannage : [docs/build.md](docs/build.md).
 
+## Home Assistant
+
+Le boîtier publie sa propre configuration par **MQTT Discovery** : aucun YAML à écrire, il
+apparaît tout seul comme un appareil unique avec ses onze entités.
+
+![Les entités du boîtier dans Home Assistant](docs/images/ePaper_HA_Card.png)
+
+*Mesures, morceau en cours, bouton de rafraîchissement et sélecteur de zone. Le sélecteur est
+alimenté par la topologie Sonos réelle, pas par le fichier de configuration. Les quatre
+entités de diagnostic — signal Wi-Fi, uptime, dernier rafraîchissement et compteur de
+rafraîchissements — sont regroupées à part par Home Assistant.*
+
+Détails, modèles de valeur et automatisation météo :
+[docs/home-assistant.md](docs/home-assistant.md).
+
 ## Documentation
 
 - [docs/development.md](docs/development.md) — **travailler sur le projet sans le matériel**
