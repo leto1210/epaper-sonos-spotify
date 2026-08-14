@@ -21,6 +21,7 @@ struct Status {
   float indoor_temperature_c = 0.0f;
   int indoor_humidity_pct = 0;
   int battery_pct = -1;  // négatif tant que la mesure n'est pas implémentée
+  bool charging = false;
   bool playing = false;
 };
 

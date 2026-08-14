@@ -244,6 +244,7 @@ void renderLineIn(const std::string& zone) {
   status.indoor_temperature_c = measures.temperature_c;
   status.indoor_humidity_pct = measures.has_climate ? measures.humidity_pct : 0;
   status.battery_pct = measures.battery_pct;
+  status.charging = measures.charging;
 
   display::showLineIn(zone, status);
   g_rtc_shown_hash = fingerprintHash(fingerprint);
@@ -292,6 +293,7 @@ void renderWeather() {
   status.indoor_temperature_c = measures.temperature_c;
   status.indoor_humidity_pct = measures.has_climate ? measures.humidity_pct : 0;
   status.battery_pct = measures.battery_pct;
+  status.charging = measures.charging;
 
   display::showWeather(view, status);
   g_rtc_shown_hash = fingerprintHash(fingerprint);
@@ -462,6 +464,7 @@ void pollAndRender() {
   status.indoor_temperature_c = measures.temperature_c;
   status.indoor_humidity_pct = measures.has_climate ? measures.humidity_pct : 0;
   status.battery_pct = measures.battery_pct;
+  status.charging = measures.charging;
 
   display::showTrack(track, status, art);
   g_rtc_shown_hash = fingerprintHash(fingerprint);

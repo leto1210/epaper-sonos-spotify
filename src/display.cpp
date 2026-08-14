@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 
+#include "core/battery_icon.h"
 #include "core/dither.h"
 #include "core/layout_plan.h"
 #include "core/text_fold.h"
@@ -153,6 +154,83 @@ void drawCloud(int16_t cx, int16_t cy, int16_t r) {
     const int16_t y = cy + r * (12 + 20 * i) / 100;
     const int16_t half = r * (i == 0 ? 40 : 28) / 100;
     epaper.fillRect(cx - half, y, half * 2, s / 2 + 1, TFT_BLACK);
+  }
+}
+
+// Remplissage d'un polygone quelconque, par balayage de lignes. La
+// bibliothèque ne sait remplir que des triangles, et découper l'éclair en
+// triangles demanderait de traiter sa concavité. Chaque ligne horizontale ne
+// traverse la silhouette qu'en deux points : le minimum et le maximum des
+// intersections suffisent donc à décrire le segment à peindre.
+void fillPolygon(const int16_t* xs, const int16_t* ys, int count, uint16_t color) {
+  int16_t top = ys[0], bottom = ys[0];
+  for (int i = 1; i < count; ++i) {
+    if (ys[i] < top) top = ys[i];
+    if (ys[i] > bottom) bottom = ys[i];
+  }
+
+  for (int16_t y = top; y <= bottom; ++y) {
+    int32_t left = INT32_MAX, right = INT32_MIN;
+    for (int i = 0; i < count; ++i) {
+      const int j = (i + 1) % count;
+      const int16_t y0 = ys[i], y1 = ys[j];
+      if (y0 == y1) continue;  // arête horizontale : sans intersection utile
+      if (y < (y0 < y1 ? y0 : y1) || y > (y0 > y1 ? y0 : y1)) continue;
+
+      const int32_t x = xs[i] + static_cast<int32_t>(xs[j] - xs[i]) * (y - y0) / (y1 - y0);
+      if (x < left) left = x;
+      if (x > right) right = x;
+    }
+    if (left <= right) {
+      epaper.drawLine(static_cast<int16_t>(left), y, static_cast<int16_t>(right), y, color);
+    }
+  }
+}
+
+// Éclair de charge, posé *à côté* de la pile et non dedans.
+//
+// À l'intérieur, il aurait fallu loger trois bandes distinctes — liseré,
+// éclair, fond — dans une vingtaine de pixels. Deux variantes ont été
+// essayées et rejetées à l'aperçu : l'éclair blanc cerné de noir se
+// fragmentait dès que la frontière de la jauge le traversait, et l'inverse
+// devenait illisible sur l'aplat plein. Dehors, sur le blanc du bandeau, un
+// aplat noir franc suffit.
+void drawBolt(int16_t cx, int16_t cy, int16_t half_h) {
+  const int16_t half_w = half_h * 55 / 100;
+
+  // Zigzag en six points, décrit en centièmes puis mis à l'échelle.
+  static const int8_t kFracX[6] = {55, -45, 12, -55, 45, -12};
+  static const int8_t kFracY[6] = {-100, 12, 12, 100, -12, -12};
+
+  int16_t xs[6], ys[6];
+  for (int i = 0; i < 6; ++i) {
+    xs[i] = cx + static_cast<int16_t>(kFracX[i] * half_w / 100);
+    ys[i] = cy + static_cast<int16_t>(kFracY[i] * half_h / 100);
+  }
+  fillPolygon(xs, ys, 6, TFT_BLACK);
+}
+
+// Pile du bandeau : corps à contour épais, borne positive, jauge en aplat.
+// La géométrie de la jauge est calculée par `core/battery_icon`, donc
+// vérifiable sans allumer l'écran.
+constexpr int16_t kBatteryStroke = 3;
+
+void drawBattery(int16_t x, int16_t y, int16_t w, int16_t h, int battery_pct) {
+  constexpr int16_t kStroke = kBatteryStroke;
+  const battery_icon::Geometry geometry = battery_icon::plan(battery_pct, w, kStroke);
+  if (!geometry.visible) return;
+
+  // Contour : un rectangle plein, puis l'évidement — même procédé que les
+  // pictogrammes météo, et pour la même raison. Un trait fin ressortirait brun.
+  epaper.fillRect(x, y, w, h, TFT_BLACK);
+  epaper.fillRect(x + kStroke, y + kStroke, w - 2 * kStroke, h - 2 * kStroke, TFT_WHITE);
+
+  const int16_t tip_h = h / 2;
+  epaper.fillRect(x + w, y + (h - tip_h) / 2, kStroke, tip_h, TFT_BLACK);
+
+  if (geometry.fill_width > 0) {
+    epaper.fillRect(x + kStroke + 1, y + kStroke + 1, geometry.fill_width,
+                    h - 2 * (kStroke + 1), TFT_BLACK);
   }
 }
 
@@ -365,6 +443,26 @@ void drawFooter(const Status& status, int duration_s, const std::string& left) {
   }
   epaper.setTextDatum(TR_DATUM);
   epaper.drawString(right.c_str(), kWidth - kMargin, baseline);
+
+  // Pictogramme de pile, à gauche du pourcentage. Le datum de droite ne dit pas
+  // où le texte commence : il faut le mesurer pour poser l'icône devant.
+  if (status.battery_pct >= 0) {
+    constexpr int16_t kBodyW = 46;
+    constexpr int16_t kBodyH = 26;
+    constexpr int16_t kGap = 10;
+
+    const int16_t text_left = kWidth - kMargin - epaper.textWidth(right.c_str());
+    const int16_t middle = baseline + epaper.fontHeight() / 2;
+    // La borne positive déborde du corps : elle compte dans l'encombrement.
+    const int16_t body_x = text_left - kGap - kBodyW - kBatteryStroke;
+
+    drawBattery(body_x, middle - kBodyH / 2, kBodyW, kBodyH, status.battery_pct);
+
+    if (status.charging) {
+      const int16_t half_h = kBodyH / 2;
+      drawBolt(body_x - kGap - half_h * 55 / 100, middle, half_h);
+    }
+  }
 
   epaper.setTextDatum(TL_DATUM);
 }
