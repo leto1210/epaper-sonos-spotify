@@ -465,6 +465,56 @@ void showTrack(const sonos::TrackInfo& track, const Status& status,
   commit();
 }
 
+// Disque vinyle : galette noire, sillons évidés, étiquette centrale et trou.
+// Comme les pictogrammes météo, du noir et blanc franc — le panneau ne rend pas
+// les traits fins en couleur, voir docs/hardware.md.
+void drawVinyl(int16_t cx, int16_t cy, int16_t r) {
+  epaper.fillCircle(cx, cy, r, TFT_BLACK);
+
+  // Quatre sillons blancs, plus resserrés vers le bord comme sur un vrai
+  // disque. Ils sont tracés en anneaux pleins puis recouverts, faute d'un
+  // tracé de cercle épais dans la bibliothèque.
+  for (int i = 0; i < 4; ++i) {
+    const int16_t groove = r * (92 - 11 * i) / 100;
+    epaper.fillCircle(cx, cy, groove, TFT_WHITE);
+    epaper.fillCircle(cx, cy, groove - r * 3 / 100, TFT_BLACK);
+  }
+
+  // Étiquette centrale : c'est elle qui rend le disque reconnaissable, plus
+  // encore que les sillons.
+  epaper.fillCircle(cx, cy, r * 34 / 100, TFT_WHITE);
+  epaper.drawCircle(cx, cy, r * 34 / 100, TFT_BLACK);
+  epaper.drawCircle(cx, cy, r * 34 / 100 - 1, TFT_BLACK);
+  epaper.fillCircle(cx, cy, r * 6 / 100, TFT_BLACK);
+}
+
+void showLineIn(const std::string& zone, const Status& status) {
+  epaper.fillScreen(TFT_WHITE);
+  epaper.setTextSize(1);
+  epaper.setTextDatum(TL_DATUM);
+
+  constexpr int16_t kVinylRadius = 150;
+  const int16_t vinyl_x = kWidth - kMargin - kVinylRadius;
+
+  drawVinyl(vinyl_x, 210, kVinylRadius);
+
+  epaper.setTextColor(TFT_BLACK);
+  applyTitleStyle(layout::TitleStyle::kLarge);
+  epaper.drawString("Entree ligne", kMargin, 130);
+
+  epaper.setTextSize(1);
+  epaper.setTextColor(TFT_BLUE);
+  epaper.setFreeFont(&FreeSansBold24pt7b);
+  epaper.drawString(zone.c_str(), kMargin, 215);
+
+  epaper.setTextColor(TFT_BLACK);
+  epaper.setFreeFont(&FreeSans18pt7b);
+  epaper.drawString("Sonos ne dit pas quoi", kMargin, 275);
+
+  drawFooter(status, 0, "> " + zone);
+  commit();
+}
+
 void showWeather(const weather::View& view, const Status& status) {
   epaper.fillScreen(TFT_WHITE);
   epaper.setTextSize(1);

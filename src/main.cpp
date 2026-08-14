@@ -219,6 +219,29 @@ void onHomeAssistantCommand(const ha::Command& command) {
   g_pending_render = true;
 }
 
+// Écran d'une entrée ligne. Même politique d'empreinte que partout ailleurs :
+// tant que la zone ne change pas, l'écran ne bouge pas — et il ne bougera de
+// toute façon pas au rythme de la musique, faute de la moindre métadonnée.
+void renderLineIn(const std::string& zone) {
+  const std::string fingerprint = "entree-ligne|" + zone;
+  if (alreadyShown(fingerprint)) return;
+
+  const sensors::Reading measures = sensors::read();
+
+  display::Status status;
+  status.zone = zone;
+  status.playing = true;
+  status.indoor_temperature_c = measures.temperature_c;
+  status.indoor_humidity_pct = measures.has_climate ? measures.humidity_pct : 0;
+  status.battery_pct = measures.battery_pct;
+
+  display::showLineIn(zone, status);
+  g_rtc_shown_hash = fingerprintHash(fingerprint);
+  g_rtc_refresh_count = display::refreshCount();
+  rememberRefreshTime();
+  publishMeasurements(measures);
+}
+
 // Écran de repli quand rien ne joue. Même politique que pour le morceau : une
 // empreinte, et pas de rafraîchissement si rien n'a bougé.
 void renderWeather() {
@@ -308,6 +331,21 @@ void pollAndRender() {
 
   sonos::Choice choice;
   sonos::TrackInfo track;
+
+  // Une zone sur son entrée ligne — platine, ampli — ne livre aucune
+  // métadonnée. On la retient de côté pour l'afficher si rien de mieux ne se
+  // présente : dire « entrée ligne au Séjour » vaut mieux que la météo, qui
+  // laisserait croire la maison silencieuse.
+  //
+  // L'état de transport n'y est pas fiable : le Séjour s'annonce « en pause »
+  // alors que la platine tourne, Sonos ne « jouant » pas une entrée ligne comme
+  // il joue un morceau. On affiche donc l'écran quel que soit cet état, mais on
+  // ne le compte comme lecture — et donc comme raison de ne pas s'endormir —
+  // que s'il annonce vraiment PLAYING. Sans quoi une entrée ligne oubliée
+  // tiendrait le boîtier éveillé indéfiniment.
+  std::string line_in_zone;
+  bool line_in_playing = false;
+
   for (const sonos::Choice& candidate : ranked) {
     track = sonos_client::fetchPositionInfo(candidate.ip);
     if (track.has_metadata) {
@@ -317,16 +355,30 @@ void pollAndRender() {
     const char* raison = "ne sait rien";
     switch (sonos::sourceKind(track.track_uri)) {
       case sonos::SourceKind::kTvInput: raison = "diffuse la television"; break;
-      case sonos::SourceKind::kLineIn: raison = "est sur son entree ligne"; break;
+      case sonos::SourceKind::kLineIn:
+        raison = "est sur son entree ligne";
+        if (line_in_zone.empty()) {
+          line_in_zone = candidate.name;
+          line_in_playing = candidate.playing;
+        }
+        break;
       case sonos::SourceKind::kSlave: raison = "est esclave d'un groupe"; break;
       default: break;
     }
     Serial.printf("[sonos] %s ecarte : %s\n", candidate.name.c_str(), raison);
   }
 
+  if (!choice.found && !line_in_zone.empty()) {
+    Serial.printf("[sonos] entree ligne sur %s%s\n", line_in_zone.c_str(),
+                  line_in_playing ? "" : " (transport inactif)");
+    g_anything_playing = line_in_playing;
+    renderLineIn(line_in_zone);
+    return;
+  }
+
   if (!choice.found) {
-    // Aucune zone ne sait quoi que ce soit : la télévision, une entrée ligne ou
-    // simplement le silence. L'écran passe à la météo.
+    // Aucune zone ne sait quoi que ce soit : la télévision, une entrée ligne à
+    // l'arrêt, ou simplement le silence. L'écran passe à la météo.
     Serial.println("[sonos] aucune metadonnee nulle part, ecran meteo");
     g_anything_playing = false;
     renderWeather();

@@ -38,6 +38,12 @@ void showBootScreen(const char* status);
 void showTrack(const sonos::TrackInfo& track, const Status& status,
                const albumart::Bitmap& art = {});
 
+// Écran d'une zone branchée sur son entrée ligne — platine, ampli, télévision.
+// Sonos n'en livre aucune métadonnée : ni titre, ni artiste, ni pochette. Il y a
+// pourtant bien du son, et l'afficher vaut mieux que de basculer sur la météo
+// comme si la maison était silencieuse.
+void showLineIn(const std::string& zone, const Status& status);
+
 // Écran de repli quand rien ne joue : météo reçue de Home Assistant par MQTT.
 // Le contenu est entièrement mis en forme par core/weather_view.
 void showWeather(const weather::View& view, const Status& status);

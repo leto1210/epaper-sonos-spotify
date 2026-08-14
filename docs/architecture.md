@@ -87,12 +87,31 @@ doit biper quand même, sinon l'utilisateur ne saurait pas que l'appui a été r
 `buttons_io::poll()` détecte l'appui qui se relâche, ce qui survient quelques centaines de
 millisecondes après le réveil. Le bip suit, après la requête réseau — un délai que le boîtier
 en sommeil ne peut pas compenser.
+## Entrée ligne : une platine, un ampli
+
+Une zone branchée sur son entrée ligne (`x-rincon-stream:`) ne livre **aucune** métadonnée :
+ni titre, ni artiste, ni pochette. Sonos ne sait rien de ce qui passe par la prise. L'écran
+affiche donc un disque vinyle, le nom de la pièce, et le dit franchement — « Sonos ne dit pas
+quoi ». Cela vaut mieux que de basculer sur la météo, qui laisserait croire la maison
+silencieuse alors qu'elle ne l'est pas.
+
+Ce cas passe **avant** la météo, mais **après** toute zone qui sait ce qu'elle joue : une
+entrée ligne oubliée ne doit pas masquer un morceau Spotify diffusé ailleurs.
+
+L'état de transport n'y est pas fiable — mesuré : le Séjour s'annonce `PAUSED_PLAYBACK`
+pendant que la platine tourne, Sonos ne « jouant » pas une entrée ligne comme il joue un
+morceau. L'écran s'affiche donc quel que soit cet état, mais le boîtier ne compte l'entrée
+ligne comme une lecture — donc comme une raison de ne pas s'endormir — que si elle annonce
+vraiment `PLAYING`. Sans cette nuance, une entrée ligne oubliée tiendrait le boîtier éveillé
+indéfiniment.
+
 ## Quand l'écran passe à la météo
 
 Trois cas, tous vérifiés sur le matériel :
 
 1. aucune zone ne joue ni n'est en pause ;
-2. plus aucune zone ne sait ce qu'elle joue — télévision, entrée ligne, silence ;
+2. plus aucune zone ne sait ce qu'elle joue — télévision ou silence ; l'entrée ligne, elle,
+   a désormais son propre écran ;
 3. la zone affichée est **en pause depuis plus de cinq minutes**.
 
 Le troisième cas est venu de l'usage : une fiche de morceau figée depuis une demi-heure
