@@ -9,6 +9,19 @@
 #
 # Le format est volontairement compact : l'ESP32 lit ce JSON avec un tampon de
 # taille fixe, et un payload non fragmenté vaut mieux qu'une structure bavarde.
+#
+# Température et humidité du moment viennent des **sondes locales**, pas de la
+# prévision. Un service météo donne la valeur d'une maille régionale : mesuré
+# ici, 30,5 °C annoncés contre 28,1 °C relevés au jardin et dans la rue, soit
+# 2,4 °C d'écart. Sur un écran qui affiche aussi la température intérieure, la
+# comparaison n'a de sens que si les deux chiffres sont des mesures.
+#
+# Le reste — condition, vent, indice UV, prévisions horaires — ne peut venir que
+# du service : aucune sonde ne prédit le temps qu'il fera.
+#
+# Adaptez `sensor.temperature_exterieure_moyenne` et
+# `sensor.maison_salon_maison_exterieur_humidite` à vos entités. Si elles
+# manquent ou sont indisponibles, la valeur de la prévision reprend la main.
 
 alias: Météo vers ePaper Sonos
 description: Publie conditions et prévisions horaires sur MQTT pour le boîtier ePaper
@@ -32,6 +45,17 @@ actions:
       retain: true
       payload: >-
         {% set etat = states.weather.forecast_maison %}
+        {# Sondes locales, avec repli sur la prévision si elles se taisent.
+           `is_number` écarte d'un coup `unknown`, `unavailable` et l'entité
+           absente — trois états qu'un `states()` nu rendrait sous forme de
+           chaîne, et qui passeraient alors le filtre `round` en produisant
+           zéro. #}
+        {% set t_locale = states('sensor.temperature_exterieure_moyenne') %}
+        {% set h_locale = states('sensor.maison_salon_maison_exterieur_humidite') %}
+        {% set temp = t_locale | float if t_locale | is_number
+                      else etat.attributes.temperature %}
+        {% set hum = h_locale | float if h_locale | is_number
+                     else etat.attributes.humidity %}
         {# Une échéance sur deux, six au total : douze heures de visibilité
            sans surcharger le payload ni la largeur de l'écran. #}
         {% set creneaux = prevision['weather.forecast_maison'].forecast[:12:2] %}
@@ -49,8 +73,8 @@ actions:
             "ts": now().timestamp() | int,
             "now": {
               "cond": etat.state,
-              "temp": etat.attributes.temperature | round(1),
-              "hum": etat.attributes.humidity | int,
+              "temp": temp | round(1),
+              "hum": hum | int,
               "wind": etat.attributes.wind_speed | round(0) | int,
               "uv": etat.attributes.uv_index | default(0) | round(1)
             },
