@@ -159,17 +159,6 @@ void publishTrack(const ha::Track& track) {
   publish(ha::trackTopic(g_device), ha::trackPayload(track));
 }
 
-void clearRetainedCommand(const std::string& topic_suffix) {
-  if (!g_enabled || !g_client.connected()) return;
-
-  // Charge utile vide et `retain` : c'est ainsi qu'on supprime un message
-  // retenu chez le courtier. Sans cette suppression, la commande serait
-  // redélivrée à chaque abonnement, donc à chaque réveil.
-  const std::string topic = std::string(MQTT_DEVICE_ID) + topic_suffix;
-  g_client.publish(topic.c_str(), "", true);
-  Serial.printf("[mqtt] commande retenue effacee : %s\n", topic.c_str());
-}
-
 void beforeDeepSleep(uint32_t sleep_duration_ms) {
   if (!g_enabled || !g_client.connected()) return;
 

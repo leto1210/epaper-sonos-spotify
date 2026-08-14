@@ -448,7 +448,18 @@ void drawFooter(const Status& status, int duration_s, const std::string& left) {
   const std::string pct_text =
       status.battery_pct >= 0 ? std::to_string(status.battery_pct) + "%" : "";
 
-  const int16_t middle = baseline + epaper.fontHeight() / 2;
+  // Centre optique des chiffres, et non centre de la police. `fontHeight()`
+  // renvoie l'interligne : il compte les jambages de « p » ou « g », absents de
+  // « 3:38 » comme de « 100% ». S'en servir posait l'icône **six pixels trop
+  // bas**, son contour dépassant visiblement sous les chiffres — invisible sur
+  // un aperçu, évident sur la photo du bandeau.
+  //
+  // La hauteur du glyphe « 0 » est exactement celle des chiffres qui
+  // l'entourent. La lire dans la fonte plutôt que la coder en dur garde
+  // l'alignement juste si la fonte du bandeau change un jour.
+  const GFXglyph& zero =
+      FreeSans18pt7b.glyph[static_cast<uint8_t>('0') - FreeSans18pt7b.first];
+  const int16_t middle = baseline + zero.height / 2;
   int16_t cursor = kWidth - kMargin;  // bord droit de ce qui reste à poser
 
   epaper.setTextDatum(TR_DATUM);

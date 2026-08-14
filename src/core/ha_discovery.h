@@ -38,18 +38,6 @@ struct Entity {
   std::string command_topic_suffix;
   std::vector<std::string> options;  // `select` uniquement
 
-  // Demande à Home Assistant de publier la commande en **retenu**.
-  //
-  // Sans cela, une commande émise pendant un sommeil est perdue : la session
-  // MQTT n'est pas persistante — `PubSubClient` ne sait pas en ouvrir une — donc
-  // le courtier ne met rien en file d'attente. Or le boîtier passe l'essentiel
-  // de son temps endormi, ce qui rendait le bouton de mise à jour injoignable
-  // au moment précis où l'on en a besoin.
-  //
-  // Retenue, la commande attend sagement le prochain réveil, où l'abonnement la
-  // délivre. À charge pour le firmware de l'effacer après l'avoir exécutée,
-  // sans quoi elle se rejouerait à chaque réveil.
-  bool retain_command = false;
 };
 
 // Sujets, tous préfixés par l'identifiant de l'appareil.
@@ -108,11 +96,6 @@ enum class CommandKind {
   kNone,
   kRefresh,
   kSelectZone,
-  // Ouvre une fenêtre pendant laquelle le boîtier écoute une mise à jour par
-  // le réseau. Il dort par tranches et n'est joignable que quelques secondes
-  // par minute : une écoute permanente serait inutilisable, et exposerait le
-  // port en continu. Voir `src/ota.h`.
-  kOtaWindow,
 };
 
 struct Command {

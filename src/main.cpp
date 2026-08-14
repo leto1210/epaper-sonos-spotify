@@ -21,7 +21,6 @@
 #include "core/zone_picker.h"
 #include "display.h"
 #include "mqtt.h"
-#include "ota.h"
 #include "sensors.h"
 #include "sonos_client.h"
 #include "wifi_mgr.h"
@@ -221,16 +220,6 @@ void onHomeAssistantCommand(const ha::Command& command) {
       Serial.printf("[ha] zone imposee : %s\n", command.zone.c_str());
       g_forced_zone = command.zone;
       break;
-    case ha::CommandKind::kOtaWindow:
-      // Surtout pas de redessin ici : les 37 s d'un rafraîchissement
-      // consommeraient une bonne part de la fenêtre, sans que `ota::handle()`
-      // soit appelé une seule fois pendant ce temps.
-      ota::openWindow();
-      // La commande est publiée en retenu, faute de quoi un appui tombant
-      // pendant un sommeil serait perdu. Il faut donc l'effacer maintenant
-      // qu'elle est servie, sinon chaque réveil rouvrirait une fenêtre.
-      mqtt::clearRetainedCommand("/cmd/ota");
-      return;
     case ha::CommandKind::kNone:
       return;
   }
@@ -565,7 +554,6 @@ void setup() {
   const bool online = wifi_mgr::connect();
   if (online) {
     wifi_mgr::syncTime();
-    ota::begin();
   } else {
     display::showBootScreen("Wi-Fi indisponible");
   }
@@ -577,21 +565,6 @@ void setup() {
 void loop() {
   wifi_mgr::loop();
   mqtt::loop();
-  ota::handle();
-
-  // Pendant une fenêtre de mise à jour, le reste de la boucle est suspendu.
-  // C'est le rafraîchissement qui l'impose : il bloque 37 s, pendant lesquelles
-  // `ota::handle()` n'est jamais appelé et le téléversement expire. Le sommeil
-  // est écarté par la même occasion — un boîtier endormi n'écoute rien.
-  //
-  // Les boutons sont donc inertes le temps de la fenêtre. C'est assumé : cinq
-  // minutes, à un moment que l'utilisateur a lui-même choisi, et une commande
-  // de transport ferait de toute façon une requête réseau au milieu d'un
-  // téléversement.
-  if (ota::isWindowOpen()) {
-    delay(10);
-    return;
-  }
 
   // Les mesures partent toutes les 5 minutes, quoi qu'affiche l'écran.
   static uint32_t last_publish_ms = 0;

@@ -178,6 +178,45 @@ en boucle — et rendant inutilisable le seul diagnostic capable de signaler un 
 redémarrage intempestif. Il est désormais cumulé en mémoire RTC, sommeil compris
 (`core/uptime.h`), en réutilisant la durée que le correctif précédent y avait déjà rangée.
 
+## Mise à jour par le réseau : essayée, retirée
+
+L'OTA a été implémenté puis **retiré**. Le constat mérite d'être conservé, parce que rien
+n'y était théorique.
+
+La table de partitions (`default_16MB.csv`) déclare déjà `app0` et `app1` de 6,5 Mo chacune,
+pour un firmware de 1,2 Mo : **aucun repartitionnement n'est nécessaire**. Ce n'est donc pas
+là qu'était l'obstacle.
+
+Trois murs se sont présentés, dans cet ordre :
+
+1. **Le boîtier dort.** Un `ArduinoOTA` à l'écoute permanente est inutilisable : le boîtier
+   n'est joignable que quelques secondes par minute. On a donc ouvert une fenêtre depuis un
+   bouton Home Assistant — sauf qu'**une commande MQTT qui arrive pendant un sommeil est
+   perdue**, la session n'étant pas persistante. C'était déjà écrit noir sur blanc dans la
+   section consacrée à `SONOS_SLEEP_WHILE_PLAYING`, et le premier appui réel n'est jamais
+   parvenu au boîtier.
+2. **La commande retenue se rejoue.** Publier la commande en `retain` la fait attendre le
+   réveil : c'est la bonne réponse au point précédent. Mais le boîtier est abonné à ce même
+   sujet, donc il reçoit le message vide par lequel il efface lui-même la commande — et le
+   relit comme une nouvelle demande. Ouvrir, effacer, ouvrir : le buzzer a bipé en continu
+   jusqu'à suppression du message retenu depuis Home Assistant. La garde contre une charge
+   utile vide existait pour le sélecteur de zone ; elle a été étendue à toutes les commandes,
+   et elle reste en place.
+3. **Le téléversement n'a jamais abouti.** Le boîtier authentifie, le transfert démarre, puis
+   rompt vers 10 %. `espota` exige que la carte **rappelle le poste** sur un port arbitraire ;
+   ici le boîtier est sur un autre sous-réseau que le poste de développement. La cause exacte
+   n'a pas été établie.
+
+Ce qu'il faut en retenir pour une reprise : sur ce réseau, une mise à jour **poussée** est le
+mauvais sens. Le boîtier sait joindre le broker MQTT et les enceintes ; c'est donc une mise à
+jour **tirée** — le boîtier va chercher un binaire sur une URL — qui a des chances
+d'aboutir. Elle demande en revanche d'héberger le binaire et un numéro de version quelque
+part, ce qui n'a pas été fait.
+
+Le câble reste donc le seul chemin de flashage. `kFirmwareVersion` est publié comme
+`sw_version` dans Home Assistant : c'est ce qui permettra, le jour venu, de vérifier sans
+console qu'une mise à jour a pris.
+
 ## Entrée en deep sleep
 
 Une fois l'écran météo affiché (c'est-à-dire, rien ne joue), le boîtier compte l'inactivité.

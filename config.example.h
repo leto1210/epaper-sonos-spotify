@@ -58,21 +58,6 @@
 #define MQTT_DEVICE_ID "reterminal_sonos"
 #define MQTT_DEVICE_NAME "ePaper Sonos"
 
-// --- Mise à jour par le réseau (OTA) ----------------------------------------
-// Le boîtier n'écoute *que* pendant une fenêtre ouverte depuis Home Assistant,
-// par le bouton « Mode mise à jour ». Il dort par tranches et ne serait de
-// toute façon pas joignable le reste du temps ; une écoute permanente
-// exposerait en outre le port en continu.
-//
-// Un mot de passe vide **désactive l'OTA** : sans lui, n'importe qui sur le
-// réseau local pourrait remplacer le firmware. Ce dépôt est public et ce
-// fichier sera recopié tel quel — le refus est délibéré, pas une omission.
-#define OTA_PASSWORD "changez-moi"
-
-// Durée de la fenêtre, en secondes. Assez pour lancer un `pio run -t upload`
-// depuis le Mac, sans laisser le port ouvert indéfiniment.
-#define OTA_WINDOW_S 300
-
 // --- Divers -----------------------------------------------------------------
 #define NTP_SERVER "pool.ntp.org"
 #define TIMEZONE "CET-1CEST,M3.5.0,M10.5.0/3"  // Europe/Paris

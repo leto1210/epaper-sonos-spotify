@@ -16,9 +16,5 @@ buttons::Action poll();
 // rafraîchissement est dû.
 bool refreshDue();
 
-// Bip d'accusé de réception. Exposé parce que la mise à jour par le réseau en a
-// besoin elle aussi : l'écran mettrait 37 s à confirmer quoi que ce soit, soit
-// une bonne part de la fenêtre d'écoute.
-void beep();
 
 }  // namespace buttons_io

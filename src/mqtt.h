@@ -34,10 +34,6 @@ void publishTrack(const ha::Track& track);
 // Sommeil long : publie `offline` en retained avant fermeture.
 void beforeDeepSleep(uint32_t sleep_duration_ms);
 
-// Efface une commande retenue après l'avoir exécutée. Sans cela, une commande
-// publiée en `retain` — la seule façon qu'elle survive à un sommeil — serait
-// redélivrée à chaque réveil et se rejouerait indéfiniment.
-void clearRetainedCommand(const std::string& topic_suffix);
 
 // Dernière météo reçue de Home Assistant. Le sujet étant retenu par le broker,
 // elle arrive dès l'abonnement, sans attendre la prochaine publication.

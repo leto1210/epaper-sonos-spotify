@@ -75,6 +75,28 @@ le réveil doit **créditer le temps dormi**. Omettre la seconde moitié ne cass
 tout de suite — le délai s'écoule simplement des dizaines de fois trop lentement, ce qui se
 diagnostique bien plus mal qu'une panne franche.
 
+## Ma propre documentation est une source, pas un décor
+
+**Ce qui s'est passé.** J'ai conçu un bouton Home Assistant pour ouvrir une fenêtre de mise à
+jour. Le premier appui réel n'est jamais parvenu au boîtier : il dormait. Or j'avais écrit
+moi-même, une heure plus tôt, que *« les commandes venues de Home Assistant sont perdues si
+elles arrivent pendant un sommeil »* — je l'avais même **vérifiée expérimentalement** avant de
+l'écrire.
+
+**Pourquoi c'est arrivé.** J'ai traité cette phrase comme une conclusion classée, propre à la
+fonctionnalité qui l'avait produite, au lieu d'une contrainte du système. Elle disqualifiait
+pourtant d'emblée toute commande ponctuelle venue de Home Assistant.
+
+**La règle.** Avant de concevoir quelque chose qui repose sur un mécanisme existant, relire ce
+que la documentation du dépôt dit **de ce mécanisme** — en particulier les limites que j'y ai
+consignées. Une contrainte vérifiée sur le matériel ne cesse pas de s'appliquer parce qu'on
+change de fonctionnalité.
+
+Corollaire, appris dans la foulée : quand un boîtier s'abonne au sujet sur lequel il publie,
+il se parle à lui-même. L'effacement d'une commande retenue est arrivé en retour comme une
+nouvelle commande, et le buzzer a bipé en continu. Toute publication sur un sujet auquel on
+est abonné doit être pensée comme une entrée à valider, pas comme une écriture.
+
 ## L'utilisateur voit ce que je ne peux pas voir
 
 Trois défauts d'affichage — bandeau désaligné, tiers d'écran vide, faux zéros des capteurs —

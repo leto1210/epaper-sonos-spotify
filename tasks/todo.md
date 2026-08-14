@@ -21,10 +21,18 @@ boîtier alimenté en permanence, la fiabilité du pilotage vaut mieux qu'une au
 n'utilise pas.
 
 Il ne manque plus qu'une **photo du panneau au mur** (`docs/images/device.jpg`, encore un
-`TODO` dans le README), qui ne dépend pas du code. En chantier : **L21 — mise à jour OTA**,
-pour ne plus avoir à décrocher le boîtier à chaque correctif. La table de partitions déclare
-déjà `app0` et `app1` de 6,5 Mo pour un firmware de 1,2 Mo : aucun repartitionnement n'est
-nécessaire.
+`TODO` dans le README), qui ne dépend pas du code.
+
+**La mise à jour par le réseau a été essayée puis retirée** (L21). Le câble reste le seul
+chemin de flashage. Le constat complet est dans
+[docs/architecture.md](../docs/architecture.md) : ce n'est pas la place en flash qui
+manquait, mais le sens de la mise à jour — *poussée*, elle exige que le boîtier rappelle le
+poste de développement, ce que ce réseau ne permet pas.
+
+Un **audit de sécurité** a été publié sur `origin/main` (`7a0e130`) par une autre séance.
+Il relève trois choses justes — transport en clair, validation insuffisante des commandes
+MQTT, dépendances non épinglées — mais **manque la fuite réelle** : `mqtt-user.env` est
+toujours lisible dans l'historique public. Voir la revue en fin de fichier.
 
 Deux points à ne pas oublier :
 
@@ -161,6 +169,21 @@ sommeil quand rien ne joue est mesuré et acquis ; la part « pendant la lecture
         serait lue comme un énorme entier non signé par le tracé
       → remplissage de polygone par balayage : la bibliothèque ne remplit que des triangles,
         et découper l'éclair imposerait de traiter sa concavité
+
+- [~] **L21** — Mise à jour par le réseau : essayée, **retirée** (14 août 2026)
+      → la table de partitions déclarait déjà `app0`/`app1` de 6,5 Mo : aucun
+        repartitionnement n'était nécessaire, l'obstacle n'était pas là
+      → trois murs, dont deux tenaient à ma propre conception : le boîtier dort et perdait
+        la commande ; publiée en `retain` elle se rejouait en boucle, le boîtier étant
+        abonné au sujet où il publiait son propre effacement — buzzer en continu
+      → le téléversement démarre, authentifie, et rompt vers 10 % : `espota` exige que la
+        carte rappelle le poste, qui est sur un autre sous-réseau. Cause exacte non établie
+      → **conclusion** : sur ce réseau, une mise à jour *poussée* va dans le mauvais sens.
+        Une mise à jour *tirée* — le boîtier va chercher un binaire sur une URL — a des
+        chances d'aboutir, mais demande d'héberger binaire et version. Non fait
+      → conservé du chantier : la garde contre une charge utile vide sur **toutes** les
+        commandes, qui manquait et que l'audit de sécurité relève par ailleurs
+      → constat complet dans [docs/architecture.md](../docs/architecture.md)
 
 ## Revue
 
