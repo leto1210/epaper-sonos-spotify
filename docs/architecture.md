@@ -171,6 +171,13 @@ qu'elle ne serve. Le motif était donc présent en double, à moitié masqué �
 de chose qu'on ne voit qu'en cherchant les frères d'un défaut plutôt qu'en réparant celui
 qu'on a sous les yeux.
 
+Un troisième exemplaire a été trouvé de cette manière, et non par une panne : le **temps de
+fonctionnement** publié à Home Assistant valait `millis() / 1000`. L'entité affichait donc
+deux secondes sur un boîtier allumé depuis quarante minutes, donnant à lire des redémarrages
+en boucle — et rendant inutilisable le seul diagnostic capable de signaler un *vrai*
+redémarrage intempestif. Il est désormais cumulé en mémoire RTC, sommeil compris
+(`core/uptime.h`), en réutilisant la durée que le correctif précédent y avait déjà rangée.
+
 ## Entrée en deep sleep
 
 Une fois l'écran météo affiché (c'est-à-dire, rien ne joue), le boîtier compte l'inactivité.

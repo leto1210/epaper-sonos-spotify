@@ -5,9 +5,8 @@ test de la précédente ne passe pas.
 
 ## État au 14 août 2026
 
-**L0 à L20 terminées et validées sur le matériel**, 132 tests au vert. Le boîtier tourne au
-mur, batterie remise en place — la campagne de mesure est close, et elle exigeait de la
-retirer (voir L19).
+**L0 à L23 terminées**, 142 tests au vert. Le boîtier tourne au mur, batterie remise en place
+— la campagne de mesure est close, et elle exigeait de la retirer (voir L19).
 
 **La refonte énergie est terminée.** Le cycle de sommeil divise la consommation par 6,2 quand
 rien ne joue : 0,050 W contre 0,31 W éveillé. Relevé complet dans
@@ -21,9 +20,11 @@ perdues quand elles arrivent pendant un sommeil, ce qui a été vérifié sur le
 boîtier alimenté en permanence, la fiabilité du pilotage vaut mieux qu'une autonomie qu'on
 n'utilise pas.
 
-Il ne reste que **L15 — finition**, et ce qui manque ne dépend pas du code : la photo du
-panneau au mur (`docs/images/device.jpg`, encore un `TODO` dans le README) et une capture des
-onze entités Home Assistant. Le reste de la documentation est à jour.
+Il ne manque plus qu'une **photo du panneau au mur** (`docs/images/device.jpg`, encore un
+`TODO` dans le README), qui ne dépend pas du code. En chantier : **L21 — mise à jour OTA**,
+pour ne plus avoir à décrocher le boîtier à chaque correctif. La table de partitions déclare
+déjà `app0` et `app1` de 6,5 Mo pour un firmware de 1,2 Mo : aucun repartitionnement n'est
+nécessaire.
 
 Deux points à ne pas oublier :
 
@@ -128,6 +129,38 @@ sommeil quand rien ne joue est mesuré et acquis ; la part « pendant la lecture
       → `SleepManager` portait le même défaut, masqué par `resumeAfterWake()` qui écrase la
         valeur restaurée. La règle générale est écrite dans
         [docs/architecture.md](../docs/architecture.md)
+
+- [x] **L15** — Finition doc : captures Home Assistant (14 août 2026, b8a3d8d)
+      → carte d'entités dans le README, page appareil dans `docs/home-assistant.md`
+      → `ePaper_HA_MQTT.png` était un fichier **WebP** portant une extension `.png` : GitHub
+        sert l'image d'après son extension, l'affichage aurait cassé chez une partie des
+        lecteurs. Converti en PNG véritable avant publication
+      → **reste ouvert** : la photo du panneau au mur (`docs/images/device.jpg`), qui ne
+        dépend pas du code
+
+- [x] **L23** — Le temps de fonctionnement compte le sommeil (14 août 2026, baec507)
+      → repéré sur une capture, pas par une panne : « 2,00 s » sur un boîtier allumé depuis
+        quarante minutes. `millis()` compte depuis le démarrage, et un réveil *est* un
+        démarrage
+      → l'entité donnait à lire des redémarrages en boucle, rendant inutilisable le seul
+        diagnostic capable de signaler un *vrai* redémarrage intempestif
+      → troisième exemplaire du motif corrigé en L20, trouvé en cherchant ses frères
+      → cumul en mémoire RTC sur 64 bits, sommeil compris ; des secondes perdraient jusqu'à
+        une seconde par cycle, soit une demi-heure de dérive par jour
+      → 3 tests dans `test_rtc`, dont la monotonie à travers vingt cycles de sommeil
+
+- [x] **L22** — Pictogramme de pile devant le pourcentage (14 août 2026, 0e34ea9)
+      → jauge proportionnelle, éclair quand le circuit charge — information que le firmware
+        publiait à Home Assistant sans l'afficher nulle part
+      → **l'éclair est posé à côté de la pile, pas dedans.** Quatre itérations sur l'aperçu
+        Python : à l'intérieur, il faut loger trois bandes de 3 px dans une vingtaine de
+        pixels. Blanc cerné de noir, il se fragmentait dès que la frontière de la jauge le
+        traversait ; l'inverse disparaissait sur l'aplat plein
+      → géométrie dans `core/battery_icon`, 7 tests : bornes, mesure absente qui ne doit
+        rien dessiner, et corps plus étroit que son contour — dont la largeur négative
+        serait lue comme un énorme entier non signé par le tracé
+      → remplissage de polygone par balayage : la bibliothèque ne remplit que des triangles,
+        et découper l'éclair imposerait de traiter sa concavité
 
 ## Revue
 

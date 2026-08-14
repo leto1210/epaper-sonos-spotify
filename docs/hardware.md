@@ -79,6 +79,16 @@ barres pleines, faute d'un gris que le panneau n'a pas.
 
 Le défaut ne se voit sur aucun aperçu : il faut photographier le panneau.
 
+La règle a une conséquence de taille, découverte en dessinant le pictogramme de pile du
+bandeau : **une forme cernée ne tient pas en dessous d'une trentaine de pixels**. Il y faut
+trois bandes distinctes — le liseré, la forme, le fond — et chacune doit faire ses 3 px. Un
+éclair de charge logé dans le corps de la pile a été essayé dans les deux sens : blanc cerné
+de noir, il se fragmentait dès que la frontière de la jauge le traversait ; noir sur un
+dégagement blanc, il devenait illisible sur l'aplat plein. Il est donc posé **à côté** de la
+pile, sur le blanc du bandeau, où un aplat noir franc se suffit à lui-même.
+
+Quand la place manque, sortir la forme de son cadre coûte moins cher que de l'amincir.
+
 ## Consommation : ce que la prise USB montre, et ce qu'elle cache
 
 **Batterie branchée, la mesure à la prise ne veut rien dire.** Le chargeur du reTerminal
