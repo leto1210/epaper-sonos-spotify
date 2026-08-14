@@ -14,6 +14,7 @@
 #include "core/pause_timer.h"
 #include "core/rtc_state.h"
 #include "core/sleep_manager.h"
+#include "core/uptime.h"
 #include "core/wakeup.h"
 #include "core/weather_rtc.h"
 #include "core/weather_view.h"
@@ -146,7 +147,11 @@ void publishMeasurements(const sensors::Reading& measures) {
   state.temperature_c = measures.temperature_c;
   state.humidity_pct = measures.humidity_pct;
   state.rssi_dbm = WiFi.RSSI();
-  state.uptime_s = millis() / 1000;
+  // Le sommeil compte dans le temps de fonctionnement : sans le cumul RTC,
+  // cette entité retombait à deux secondes à chaque réveil et donnait à lire
+  // un boîtier qui redémarre en boucle. Voir core/uptime.h.
+  state.uptime_s =
+      static_cast<long>(uptime::totalMs(g_rtc_state.uptime_accumulated_ms, millis()) / 1000);
   state.refresh_count = static_cast<int>(display::refreshCount());
   state.last_refresh_iso = g_rtc_last_refresh_iso;
   state.selected_zone = g_forced_zone;
@@ -483,6 +488,12 @@ void setup() {
   // Un réveil de deep sleep repasse par ici : ce qui a survécu dans la mémoire
   // RTC évite de tout recommencer à zéro.
   const esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
+  if (wakeup == ESP_SLEEP_WAKEUP_UNDEFINED) {
+    // Démarrage à froid : c'est le seul moment où le temps de fonctionnement
+    // doit repartir de zéro. Explicite plutôt qu'implicite — le reste de l'état
+    // RTC n'est lu que sur un réveil, celui-ci l'est à chaque publication.
+    g_rtc_state.uptime_accumulated_ms = 0;
+  }
   if (wakeup != ESP_SLEEP_WAKEUP_UNDEFINED) {
     Serial.printf("[veille] reveil par %s, %lu rafraichissement(s) deja compte(s)\n",
                   wakeup == ESP_SLEEP_WAKEUP_TIMER ? "minuterie" : "bouton",
@@ -635,6 +646,11 @@ void loop() {
       g_rtc_state.last_ip[sizeof(g_rtc_state.last_ip) - 1] = '\0';
 
       g_rtc_state.sleep_duration_ms = decision.duration_ms;
+
+      // Le sommeil à venir compte déjà : au réveil, `millis()` repartira de
+      // zéro et cet éveil-ci serait sinon perdu deux fois.
+      g_rtc_state.uptime_accumulated_ms = uptime::accumulate(
+          g_rtc_state.uptime_accumulated_ms, millis(), decision.duration_ms);
 
       idle::PauseTimerState pause_state = g_pause_timer.serialize(millis());
       g_rtc_state.pause_timer_paused = pause_state.paused;

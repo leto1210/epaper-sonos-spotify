@@ -33,6 +33,11 @@ struct State {
   // combien de temps créditer aux compteurs qui mesurent du temps réel.
   uint32_t sleep_duration_ms = 0;
 
+  // Temps de fonctionnement cumulé depuis le dernier démarrage à froid, sommeil
+  // compris. Voir core/uptime.h : sans ce cumul, l'entité de Home Assistant
+  // retombait à quelques secondes à chaque réveil.
+  uint64_t uptime_accumulated_ms = 0;
+
   // État de sleep_manager : seuil d'inactivité et arrivée du prochain sleep.
   uint32_t sleep_mgr_inactive_since_ms = 0;
   uint32_t sleep_mgr_wake_at_ms = 0;
