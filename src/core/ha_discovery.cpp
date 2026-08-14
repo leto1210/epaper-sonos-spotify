@@ -25,6 +25,22 @@ std::string configTopic(const Device& device, const Entity& entity) {
 
 const char* const kAutoZone = "auto";
 
+// Les clés qui peuvent manquer se lisent par `value_json.get(clé, None)`, et
+// jamais par `value_json.clé`. Trois comportements de Home Assistant, tous
+// vérifiés en publiant sur un capteur jetable :
+//
+//   `value_json.bat` sur une clé absente     -> le rendu lève une erreur, et
+//                                               Home Assistant **conserve la
+//                                               valeur précédente** ;
+//   `| default('unknown')`                   -> même résultat, la chaîne
+//                                               « unknown » étant refusée pour
+//                                               un capteur numérique ;
+//   `value_json.get('bat', None)`            -> l'état passe à « inconnu ».
+//
+// Sans cela, un boîtier dont la batterie a été retirée continuait d'afficher
+// 100 % dans Home Assistant, indéfiniment. Le firmware omettait bien la clé —
+// c'était le template qui trahissait.
+
 std::vector<Entity> entities(const std::vector<std::string>& zones) {
   std::vector<Entity> list;
 
@@ -35,7 +51,7 @@ std::vector<Entity> entities(const std::vector<std::string>& zones) {
   battery.device_class = "battery";
   battery.state_class = "measurement";
   battery.unit = "%";
-  battery.value_template = "{{ value_json.bat }}";
+  battery.value_template = "{{ value_json.get('bat', None) }}";
   list.push_back(battery);
 
   Entity charging;
@@ -53,7 +69,7 @@ std::vector<Entity> entities(const std::vector<std::string>& zones) {
   temperature.device_class = "temperature";
   temperature.state_class = "measurement";
   temperature.unit = "°C";
-  temperature.value_template = "{{ value_json.temp }}";
+  temperature.value_template = "{{ value_json.get('temp', None) }}";
   list.push_back(temperature);
 
   Entity humidity;
@@ -63,7 +79,7 @@ std::vector<Entity> entities(const std::vector<std::string>& zones) {
   humidity.device_class = "humidity";
   humidity.state_class = "measurement";
   humidity.unit = "%";
-  humidity.value_template = "{{ value_json.hum }}";
+  humidity.value_template = "{{ value_json.get('hum', None) }}";
   list.push_back(humidity);
 
   Entity rssi;
@@ -92,7 +108,7 @@ std::vector<Entity> entities(const std::vector<std::string>& zones) {
   last_refresh.component = "sensor";
   last_refresh.name = "Dernier rafraîchissement";
   last_refresh.device_class = "timestamp";
-  last_refresh.value_template = "{{ value_json.last }}";
+  last_refresh.value_template = "{{ value_json.get('last', None) }}";
   last_refresh.entity_category = "diagnostic";
   list.push_back(last_refresh);
 

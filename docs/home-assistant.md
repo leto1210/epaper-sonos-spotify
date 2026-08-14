@@ -29,9 +29,22 @@ Aucun YAML à écrire côté Home Assistant : l'appareil apparaît tout seul.
   - sommeil long : `offline` est publié en retained avant la fermeture, pour refléter une
     indisponibilité durable.
 
-Une mesure absente — ADC non lu, SHT4x muet — est **omise** du payload plutôt que publiée à
-zéro : l'entité passe à « inconnu », ce qui est la vérité, au lieu d'annoncer une batterie
-vide ou 0 °C.
+Une mesure absente — ADC non lu, SHT4x muet, batterie physiquement retirée — est **omise** du
+payload plutôt que publiée à zéro : l'entité passe à « inconnu », ce qui est la vérité, au
+lieu d'annoncer une batterie vide ou 0 °C.
+
+Omettre la clé ne suffit pourtant pas. Les entités concernées lisent leur valeur par
+`value_json.get('clé', None)` et jamais par `value_json.clé`. Trois comportements de Home
+Assistant, tous trois vérifiés en publiant sur un capteur jetable :
+
+| Template | Clé absente |
+|---|---|
+| `{{ value_json.bat }}` | le rendu lève une erreur, **l'ancienne valeur est conservée** |
+| `{{ value_json.bat \| default('unknown') }}` | idem : « unknown » est refusé pour un capteur numérique |
+| `{{ value_json.get('bat', None) }}` | l'état passe à **« inconnu »** |
+
+Sans cette précaution, un boîtier dont on avait retiré la batterie continuait d'afficher
+100 % indéfiniment. Le firmware omettait bien la clé — c'était le template qui trahissait.
 
 ## Entités exposées
 
@@ -53,9 +66,9 @@ Le sélecteur est alimenté par la **topologie réelle**, pas par `SONOS_ZONE_PR
 découverte est republiée avec les noms des pièces dès le premier sondage. Il ne propose donc
 que `auto` pendant les quelques secondes qui suivent la connexion.
 
-Une zone imposée qui ne sait pas ce qu'elle joue — silence, télévision, entrée ligne — fait
-basculer l'écran sur la météo plutôt que de retomber sur une autre pièce : c'est celle-là que
-l'utilisateur a demandée.
+Une zone imposée qui ne sait pas ce qu'elle joue — silence ou télévision — fait basculer
+l'écran sur la météo plutôt que de retomber sur une autre pièce : c'est celle-là que
+l'utilisateur a demandée. Une **entrée ligne**, elle, a son propre écran.
 
 ## Tableau de bord
 

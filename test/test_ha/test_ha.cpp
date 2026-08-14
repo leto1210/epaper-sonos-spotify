@@ -120,6 +120,39 @@ void test_missing_measurements_are_omitted_not_zeroed() {
   TEST_ASSERT_FALSE(doc["last"].is<std::string>());
 }
 
+// Une mesure omise doit faire passer l'entité à « inconnu », pas laisser la
+// dernière valeur en place. Vérifié sur un capteur jetable : `value_json.bat`
+// sur une clé absente lève une erreur de rendu, et Home Assistant conserve
+// alors l'ancien état — un boîtier dont la batterie a été retirée affichait
+// 100 % indéfiniment. Seul `get(clé, None)` produit « inconnu ».
+void test_omissible_values_are_read_with_a_none_default() {
+  for (const char* object_id : {"batterie", "temperature", "humidite",
+                                "dernier_rafraichissement"}) {
+    const ha::Entity entity = entityNamed(object_id);
+    const std::string message = std::string(object_id) + " : " + entity.value_template;
+    TEST_ASSERT_TRUE_MESSAGE(
+        entity.value_template.find(", None)") != std::string::npos, message.c_str());
+    TEST_ASSERT_TRUE_MESSAGE(
+        entity.value_template.find(".get(") != std::string::npos, message.c_str());
+  }
+}
+
+// Le pendant de la règle : la batterie absente est déjà omise du payload. Les
+// deux moitiés doivent tenir ensemble, sinon le template ne sert à rien.
+void test_absent_battery_is_omitted_from_the_payload() {
+  ha::State state;
+  state.battery_pct = -1;  // ce que renvoie la conversion pour une lecture impossible
+  state.battery_mv = 0;
+
+  const JsonDocument doc = parsed(ha::statePayload(state));
+  TEST_ASSERT_FALSE(doc["bat"].is<int>());
+  TEST_ASSERT_FALSE(doc["mv"].is<int>());
+  // Le reste continue d'être publié : une batterie absente n'empêche pas de
+  // suivre le Wi-Fi ni le compteur de rafraîchissements.
+  TEST_ASSERT_TRUE(doc["rssi"].is<int>());
+  TEST_ASSERT_TRUE(doc["refresh"].is<int>());
+}
+
 // Les titres contiennent des guillemets et des accents ; le payload doit
 // rester du JSON valide.
 void test_track_payload_escapes_special_characters() {
@@ -207,6 +240,8 @@ int main(int, char**) {
   RUN_TEST(test_measurements_share_one_state_topic);
   RUN_TEST(test_state_payload_carries_the_measurements);
   RUN_TEST(test_missing_measurements_are_omitted_not_zeroed);
+  RUN_TEST(test_omissible_values_are_read_with_a_none_default);
+  RUN_TEST(test_absent_battery_is_omitted_from_the_payload);
   RUN_TEST(test_track_payload_escapes_special_characters);
   RUN_TEST(test_refresh_button_declares_only_a_command_topic);
   RUN_TEST(test_zone_select_lists_auto_then_the_real_zones);
