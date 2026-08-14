@@ -5,6 +5,7 @@
 
 #include "core/dither.h"
 #include "core/layout_plan.h"
+#include "core/text_fold.h"
 #include "core/version.h"
 
 namespace display {
@@ -342,7 +343,7 @@ void drawFooter(const Status& status, int duration_s, const std::string& left) {
   const int16_t baseline = kFooterY + 16;
 
   epaper.setTextDatum(TL_DATUM);
-  epaper.drawString(left.c_str(), kMargin, baseline);
+  epaper.drawString(text::foldToAscii(left).c_str(), kMargin, baseline);
 
   // Rien plutôt qu'un zéro inventé : les capteurs arrivent à la livraison 9, et
   // un « 0.0 C » se lit comme une mesure, pas comme une absence de mesure.
@@ -445,7 +446,7 @@ void showTrack(const sonos::TrackInfo& track, const Status& status,
   epaper.setTextColor(TFT_BLACK);
   applyTitleStyle(plan.title_style);
   for (const std::string& line : plan.title_lines) {
-    epaper.drawString(line.c_str(), text_x, text_y);
+    epaper.drawString(text::foldToAscii(line).c_str(), text_x, text_y);
     text_y += titleLineHeight(plan.title_style);
   }
 
@@ -453,12 +454,12 @@ void showTrack(const sonos::TrackInfo& track, const Status& status,
   epaper.setTextSize(1);
   epaper.setTextColor(TFT_BLUE);
   epaper.setFreeFont(&FreeSansBold24pt7b);
-  epaper.drawString(plan.artist.c_str(), text_x, text_y);
+  epaper.drawString(text::foldToAscii(plan.artist).c_str(), text_x, text_y);
 
   text_y += kArtistHeight;
   epaper.setTextColor(TFT_BLACK);
   epaper.setFreeFont(&FreeSans18pt7b);
-  epaper.drawString(plan.album.c_str(), text_x, text_y);
+  epaper.drawString(text::foldToAscii(plan.album).c_str(), text_x, text_y);
 
   drawFooter(status, track.duration_s,
              std::string(status.playing ? "> " : "|| ") + status.zone);
@@ -505,7 +506,7 @@ void showLineIn(const std::string& zone, const Status& status) {
   epaper.setTextSize(1);
   epaper.setTextColor(TFT_BLUE);
   epaper.setFreeFont(&FreeSansBold24pt7b);
-  epaper.drawString(zone.c_str(), kMargin, 215);
+  epaper.drawString(text::foldToAscii(zone).c_str(), kMargin, 215);
 
   epaper.setTextColor(TFT_BLACK);
   epaper.setFreeFont(&FreeSans18pt7b);
