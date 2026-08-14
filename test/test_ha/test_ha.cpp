@@ -48,7 +48,7 @@ void test_unique_ids_are_unique() {
     TEST_ASSERT_FALSE_MESSAGE(seen.count(unique_id) > 0, unique_id.c_str());
     seen.insert(unique_id);
   }
-  TEST_ASSERT_EQUAL_INT(11, static_cast<int>(seen.size()));
+  TEST_ASSERT_EQUAL_INT(12, static_cast<int>(seen.size()));
 }
 
 // C'est ce bloc, identique partout, qui regroupe les entités sous un seul
@@ -200,11 +200,49 @@ void test_zone_select_lists_auto_then_the_real_zones() {
   TEST_ASSERT_EQUAL_STRING("Sonos Séjour", doc["options"][1].as<std::string>().c_str());
 }
 
-void test_command_topics_are_the_two_writable_entities() {
+void test_command_topics_are_the_writable_entities() {
   const std::vector<std::string> topics = ha::commandTopics(device());
-  TEST_ASSERT_EQUAL_INT(2, static_cast<int>(topics.size()));
+  TEST_ASSERT_EQUAL_INT(3, static_cast<int>(topics.size()));
   TEST_ASSERT_EQUAL_STRING("reterminal_sonos/cmd/refresh", topics[0].c_str());
-  TEST_ASSERT_EQUAL_STRING("reterminal_sonos/cmd/zone", topics[1].c_str());
+  TEST_ASSERT_EQUAL_STRING("reterminal_sonos/cmd/ota", topics[1].c_str());
+  TEST_ASSERT_EQUAL_STRING("reterminal_sonos/cmd/zone", topics[2].c_str());
+}
+
+// Un bouton ne porte pas d'etat : declarer un `state_topic` le ferait
+// apparaitre indisponible. Et la mise a jour est un reglage, pas une mesure :
+// `config` la range hors du tableau de bord principal.
+void test_the_update_button_is_a_command_only_config_entity() {
+  ha::Entity ota;
+  for (const ha::Entity& candidate : ha::entities()) {
+    if (candidate.object_id == "maj") ota = candidate;
+  }
+  TEST_ASSERT_EQUAL_STRING("button", ota.component.c_str());
+  TEST_ASSERT_EQUAL_STRING("config", ota.entity_category.c_str());
+
+  const JsonDocument doc = parsed(ha::discoveryPayload(device(), ota));
+  TEST_ASSERT_TRUE(doc["state_topic"].isNull());
+  TEST_ASSERT_EQUAL_STRING("reterminal_sonos/cmd/ota",
+                           doc["command_topic"].as<std::string>().c_str());
+}
+
+// Le boitier passe l'essentiel de son temps endormi, et une commande qui
+// arrive pendant un sommeil est perdue : la session MQTT n'est pas
+// persistante, le courtier ne met rien en file d'attente. Retenue, elle attend
+// le reveil. Verifie sur le materiel : sans `retain`, le premier appui reel
+// n'est jamais parvenu au boitier.
+void test_the_update_command_is_retained_so_it_survives_a_sleep() {
+  ha::Entity ota, refresh;
+  for (const ha::Entity& candidate : ha::entities()) {
+    if (candidate.object_id == "maj") ota = candidate;
+    if (candidate.object_id == "rafraichir") refresh = candidate;
+  }
+
+  TEST_ASSERT_TRUE(parsed(ha::discoveryPayload(device(), ota))["retain"].as<bool>());
+
+  // Le rafraichissement, lui, ne doit pas etre retenu : rejouer un redessin de
+  // 37 s a chaque reveil serait exactement la regression que le compteur de
+  // rafraichissements sert a detecter.
+  TEST_ASSERT_TRUE(parsed(ha::discoveryPayload(device(), refresh))["retain"].isNull());
 }
 
 void test_parses_incoming_commands() {
@@ -212,6 +250,9 @@ void test_parses_incoming_commands() {
 
   TEST_ASSERT_EQUAL(ha::CommandKind::kRefresh,
                     ha::parseCommand(dev, "reterminal_sonos/cmd/refresh", "PRESS").kind);
+
+  TEST_ASSERT_EQUAL(ha::CommandKind::kOtaWindow,
+                    ha::parseCommand(dev, "reterminal_sonos/cmd/ota", "PRESS").kind);
 
   const ha::Command zone =
       ha::parseCommand(dev, "reterminal_sonos/cmd/zone", "Sonos Cuisine");
@@ -229,6 +270,15 @@ void test_ignores_unknown_or_empty_commands() {
                     ha::parseCommand(dev, "autre_appareil/cmd/refresh", "PRESS").kind);
   TEST_ASSERT_EQUAL(ha::CommandKind::kNone,
                     ha::parseCommand(dev, "reterminal_sonos/cmd/zone", "").kind);
+
+  // Le boitier efface le message retenu en publiant une charge utile vide --
+  // et il est abonne au sujet, donc il la recoit. Sans cette garde, effacer
+  // rouvrait une fenetre, qui effacait a son tour : sur le materiel, le buzzer
+  // a bipe en continu jusqu'a suppression du message retenu depuis HA.
+  TEST_ASSERT_EQUAL(ha::CommandKind::kNone,
+                    ha::parseCommand(dev, "reterminal_sonos/cmd/ota", "").kind);
+  TEST_ASSERT_EQUAL(ha::CommandKind::kNone,
+                    ha::parseCommand(dev, "reterminal_sonos/cmd/refresh", "").kind);
 }
 
 int main(int, char**) {
@@ -245,7 +295,9 @@ int main(int, char**) {
   RUN_TEST(test_track_payload_escapes_special_characters);
   RUN_TEST(test_refresh_button_declares_only_a_command_topic);
   RUN_TEST(test_zone_select_lists_auto_then_the_real_zones);
-  RUN_TEST(test_command_topics_are_the_two_writable_entities);
+  RUN_TEST(test_command_topics_are_the_writable_entities);
+  RUN_TEST(test_the_update_button_is_a_command_only_config_entity);
+  RUN_TEST(test_the_update_command_is_retained_so_it_survives_a_sleep);
   RUN_TEST(test_parses_incoming_commands);
   RUN_TEST(test_ignores_unknown_or_empty_commands);
   return UNITY_END();

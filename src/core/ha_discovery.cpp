@@ -145,6 +145,24 @@ std::vector<Entity> entities(const std::vector<std::string>& zones) {
   refresh.command_topic_suffix = "/cmd/refresh";
   list.push_back(refresh);
 
+  // Le boîtier n'écoute une mise à jour que sur demande : il dort par tranches
+  // et ne serait de toute façon pas joignable le reste du temps. Ce bouton
+  // ouvre la fenêtre, et suspend le sommeil le temps qu'elle dure.
+  //
+  // La commande est **retenue** : le boîtier passe l'essentiel de son temps
+  // endormi, et un appui qui tombe pendant un sommeil serait perdu — c'est ce
+  // qui est arrivé au premier essai sur le matériel. Retenue, elle attend le
+  // réveil suivant. Le délai est d'une tranche de sommeil au pire.
+  Entity ota;
+  ota.object_id = "maj";
+  ota.component = "button";
+  ota.name = "Mode mise à jour";
+  ota.icon = "mdi:package-down";
+  ota.entity_category = "config";
+  ota.command_topic_suffix = "/cmd/ota";
+  ota.retain_command = true;
+  list.push_back(ota);
+
   Entity zone;
   zone.object_id = "zone";
   zone.component = "select";
@@ -178,6 +196,7 @@ std::string discoveryPayload(const Device& device, const Entity& entity) {
 
   if (!entity.command_topic_suffix.empty()) {
     doc["command_topic"] = device.id + entity.command_topic_suffix;
+    if (entity.retain_command) doc["retain"] = true;
   }
   if (!entity.options.empty()) {
     JsonArray options = doc["options"].to<JsonArray>();
@@ -253,7 +272,21 @@ Command parseCommand(const Device& device, const std::string& topic,
   Command command;
 
   if (topic == device.id + "/cmd/refresh") {
+    // Même garde que pour la mise à jour : un message vide ne déclenche pas
+    // 37 s de rafraîchissement.
+    if (payload.empty()) return command;
     command.kind = CommandKind::kRefresh;
+    return command;
+  }
+
+  if (topic == device.id + "/cmd/ota") {
+    // Une charge utile vide n'est pas une demande : c'est l'effacement du
+    // message retenu. Or le boîtier est abonné à ce sujet, donc il reçoit son
+    // propre effacement. Sans cette garde, effacer rouvrait une fenêtre, qui
+    // effaçait à son tour — le buzzer a bipé en continu jusqu'à ce qu'on
+    // supprime le message retenu depuis Home Assistant.
+    if (payload.empty()) return command;
+    command.kind = CommandKind::kOtaWindow;
     return command;
   }
 

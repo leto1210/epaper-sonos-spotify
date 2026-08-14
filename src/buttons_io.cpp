@@ -17,13 +17,13 @@ constexpr int kBeepMs = 40;
 
 buttons::Controller g_controller;
 
+}  // namespace
+
 void beep() {
   ledcWriteTone(kPinBuzzer, kBeepHz);
   delay(kBeepMs);
   ledcWriteTone(kPinBuzzer, 0);
 }
-
-}  // namespace
 
 void begin() {
   pinMode(kPinGreen, INPUT_PULLUP);

@@ -4,6 +4,6 @@
 // doit compiler sans Arduino (voir env:native dans platformio.ini).
 namespace epaper_spotify {
 
-constexpr const char* kFirmwareVersion = "0.1.0";
+constexpr const char* kFirmwareVersion = "0.2.2";
 
 }  // namespace epaper_spotify

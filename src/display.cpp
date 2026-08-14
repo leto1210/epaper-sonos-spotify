@@ -436,32 +436,42 @@ void drawFooter(const Status& status, int duration_s, const std::string& left) {
   // La durée seule, sans barre de progression : celle-ci serait figée à
   // l'instant du rendu et n'avancerait plus pendant tout le morceau. Sur
   // l'écran météo il n'y a pas de morceau : la place reste à la batterie.
-  std::string right = duration_s > 0 ? layout::formatDuration(duration_s) : "";
-  if (status.battery_pct >= 0) {
-    if (!right.empty()) right += "   ";
-    right += std::to_string(status.battery_pct) + "%";
-  }
+  // Les éléments sont posés de droite à gauche, chacun mesuré : le datum de
+  // droite dit où un texte finit, jamais où il commence. C'est ce qui permet de
+  // glisser la pile *entre* la durée et le pourcentage — collée au chiffre
+  // qu'elle illustre, et non devant la durée, qui n'a rien à voir avec elle.
+  constexpr int16_t kBodyW = 46;
+  constexpr int16_t kBodyH = 26;
+  constexpr int16_t kGap = 14;
+
+  const std::string duration_text = duration_s > 0 ? layout::formatDuration(duration_s) : "";
+  const std::string pct_text =
+      status.battery_pct >= 0 ? std::to_string(status.battery_pct) + "%" : "";
+
+  const int16_t middle = baseline + epaper.fontHeight() / 2;
+  int16_t cursor = kWidth - kMargin;  // bord droit de ce qui reste à poser
+
   epaper.setTextDatum(TR_DATUM);
-  epaper.drawString(right.c_str(), kWidth - kMargin, baseline);
 
-  // Pictogramme de pile, à gauche du pourcentage. Le datum de droite ne dit pas
-  // où le texte commence : il faut le mesurer pour poser l'icône devant.
-  if (status.battery_pct >= 0) {
-    constexpr int16_t kBodyW = 46;
-    constexpr int16_t kBodyH = 26;
-    constexpr int16_t kGap = 10;
+  if (!pct_text.empty()) {
+    epaper.drawString(pct_text.c_str(), cursor, baseline);
+    cursor -= epaper.textWidth(pct_text.c_str()) + kGap;
 
-    const int16_t text_left = kWidth - kMargin - epaper.textWidth(right.c_str());
-    const int16_t middle = baseline + epaper.fontHeight() / 2;
     // La borne positive déborde du corps : elle compte dans l'encombrement.
-    const int16_t body_x = text_left - kGap - kBodyW - kBatteryStroke;
-
+    const int16_t body_x = cursor - kBatteryStroke - kBodyW;
     drawBattery(body_x, middle - kBodyH / 2, kBodyW, kBodyH, status.battery_pct);
+    cursor = body_x - kGap;
 
     if (status.charging) {
       const int16_t half_h = kBodyH / 2;
-      drawBolt(body_x - kGap - half_h * 55 / 100, middle, half_h);
+      const int16_t half_w = half_h * 55 / 100;
+      drawBolt(cursor - half_w, middle, half_h);
+      cursor -= 2 * half_w + kGap;
     }
+  }
+
+  if (!duration_text.empty()) {
+    epaper.drawString(duration_text.c_str(), cursor, baseline);
   }
 
   epaper.setTextDatum(TL_DATUM);
