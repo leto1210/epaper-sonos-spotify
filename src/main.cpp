@@ -495,10 +495,13 @@ void setup() {
 
     idle::PauseTimerState pause_state;
     pause_state.paused = g_rtc_state.pause_timer_paused;
-    pause_state.paused_since_ms = g_rtc_state.pause_timer_since_ms;
+    pause_state.paused_ms = g_rtc_state.pause_timer_elapsed_ms;
     strncpy(pause_state.zone, g_rtc_state.pause_timer_zone, sizeof(pause_state.zone) - 1);
     pause_state.zone[sizeof(pause_state.zone) - 1] = '\0';
-    g_pause_timer.deserialize(pause_state);
+    // Le sommeil compte dans la pause : il s'est bel et bien écoulé. Un réveil
+    // par bouton peut avoir écourté la tranche, on crédite alors un peu trop —
+    // au plus une tranche, et l'appui provoque de toute façon un redessin.
+    g_pause_timer.deserialize(pause_state, millis(), g_rtc_state.sleep_duration_ms);
 
     power::SleepManagerState sleep_state;
     sleep_state.inactive_since_ms = g_rtc_state.sleep_mgr_inactive_since_ms;
@@ -631,9 +634,11 @@ void loop() {
       strncpy(g_rtc_state.last_ip, g_last_ip.c_str(), sizeof(g_rtc_state.last_ip) - 1);
       g_rtc_state.last_ip[sizeof(g_rtc_state.last_ip) - 1] = '\0';
 
-      idle::PauseTimerState pause_state = g_pause_timer.serialize();
+      g_rtc_state.sleep_duration_ms = decision.duration_ms;
+
+      idle::PauseTimerState pause_state = g_pause_timer.serialize(millis());
       g_rtc_state.pause_timer_paused = pause_state.paused;
-      g_rtc_state.pause_timer_since_ms = pause_state.paused_since_ms;
+      g_rtc_state.pause_timer_elapsed_ms = pause_state.paused_ms;
       strncpy(g_rtc_state.pause_timer_zone, pause_state.zone, sizeof(g_rtc_state.pause_timer_zone) - 1);
       g_rtc_state.pause_timer_zone[sizeof(g_rtc_state.pause_timer_zone) - 1] = '\0';
 

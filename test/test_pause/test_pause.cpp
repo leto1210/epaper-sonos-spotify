@@ -74,8 +74,41 @@ void test_survives_millis_rollover() {
   TEST_ASSERT_TRUE(timer.expired(now, false, "Sonos Holiday"));
 }
 
+// Le deep sleep repasse par `setup()` : `millis()` y recommence près de zéro.
+// Une date de l'époque précédente, relue telle quelle, donnait un écart négatif
+// et la pause n'expirait plus jamais — l'écran restait figé sur le morceau.
+void test_a_deep_sleep_does_not_erase_the_pause() {
+  idle::PauseTimer before;
+  const uint32_t paused_at = 300000;  // cinq minutes d'éveil au compteur
+  before.expired(paused_at, false, "Sonos Sejour");
+
+  // Quatre minutes de pause, puis une tranche de sommeil de soixante secondes.
+  const idle::PauseTimerState saved = before.serialize(paused_at + 4 * 60 * 1000);
+
+  idle::PauseTimer after;
+  const uint32_t woke_at = 4000;  // nouvelle époque : `millis()` repart de zéro
+  after.deserialize(saved, woke_at, 60 * 1000);
+
+  // Quatre minutes de pause plus une de sommeil : la grâce est échue.
+  TEST_ASSERT_TRUE(after.expired(woke_at, false, "Sonos Sejour"));
+}
+
+// Le même trajet, interrompu plus tôt : le compteur ne doit pas non plus se
+// déclencher d'avance.
+void test_a_deep_sleep_does_not_shorten_the_pause_either() {
+  idle::PauseTimer before;
+  before.expired(300000, false, "Sonos Sejour");
+  const idle::PauseTimerState saved = before.serialize(300000 + 60 * 1000);
+
+  idle::PauseTimer after;
+  after.deserialize(saved, 4000, 60 * 1000);
+  TEST_ASSERT_FALSE(after.expired(4000, false, "Sonos Sejour"));
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_a_deep_sleep_does_not_erase_the_pause);
+  RUN_TEST(test_a_deep_sleep_does_not_shorten_the_pause_either);
   RUN_TEST(test_playing_never_expires);
   RUN_TEST(test_short_pause_keeps_the_track_on_screen);
   RUN_TEST(test_long_pause_yields_the_screen);

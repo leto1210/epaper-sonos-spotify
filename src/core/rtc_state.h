@@ -23,10 +23,15 @@ struct State {
   char last_zone[kZoneNameLen] = {};
   char last_ip[kIPv4StrLen] = {};
 
-  // État de pause_timer : délai de grâce 5 min après une mise en pause.
+  // État de pause_timer : délai de grâce 5 min après une mise en pause. On
+  // conserve une durée écoulée, pas une date — voir core/pause_timer.h.
   bool pause_timer_paused = false;
-  uint32_t pause_timer_since_ms = 0;
+  uint32_t pause_timer_elapsed_ms = 0;
   char pause_timer_zone[kZoneNameLen] = {};
+
+  // Durée du sommeil qui vient d'être demandé, pour que le réveil sache
+  // combien de temps créditer aux compteurs qui mesurent du temps réel.
+  uint32_t sleep_duration_ms = 0;
 
   // État de sleep_manager : seuil d'inactivité et arrivée du prochain sleep.
   uint32_t sleep_mgr_inactive_since_ms = 0;

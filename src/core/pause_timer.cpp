@@ -12,19 +12,24 @@ void PauseTimer::reset() {
   zone_.clear();
 }
 
-PauseTimerState PauseTimer::serialize() const {
+PauseTimerState PauseTimer::serialize(uint32_t now_ms) const {
   PauseTimerState state;
   state.paused = paused_;
-  state.paused_since_ms = paused_since_ms_;
+  state.paused_ms = paused_ ? now_ms - paused_since_ms_ : 0;
   strncpy(state.zone, zone_.c_str(), sizeof(state.zone) - 1);
   state.zone[sizeof(state.zone) - 1] = '\0';
   return state;
 }
 
-void PauseTimer::deserialize(const PauseTimerState& state) {
+void PauseTimer::deserialize(const PauseTimerState& state, uint32_t now_ms,
+                             uint32_t slept_ms) {
   paused_ = state.paused;
-  paused_since_ms_ = state.paused_since_ms;
   zone_ = state.zone;
+  // Antidater le début de la pause de tout ce qui s'est écoulé : l'éveil
+  // précédent et le sommeil qui l'a suivi. L'arithmétique modulaire de
+  // `uint32_t` rend la soustraction correcte même quand `millis()` vaut moins
+  // que le total, ce qui est le cas dans les secondes qui suivent un réveil.
+  paused_since_ms_ = now_ms - (state.paused_ms + slept_ms);
 }
 
 bool PauseTimer::expired(uint32_t now_ms, bool playing, const std::string& zone) {

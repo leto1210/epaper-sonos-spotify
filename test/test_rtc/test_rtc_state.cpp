@@ -12,10 +12,10 @@ namespace {
 // Tests pour PauseTimer::serialize() et deserialize()
 void test_pause_timer_serialize_empty() {
   idle::PauseTimer timer;
-  idle::PauseTimerState state = timer.serialize();
+  idle::PauseTimerState state = timer.serialize(0);
 
   TEST_ASSERT_FALSE(state.paused);
-  TEST_ASSERT_EQUAL_UINT32(0, state.paused_since_ms);
+  TEST_ASSERT_EQUAL_UINT32(0, state.paused_ms);
   TEST_ASSERT_EQUAL_STRING("", state.zone);
 }
 
@@ -27,21 +27,24 @@ void test_pause_timer_serialize_and_restore() {
   timer1.expired(2000, false, "Salon");  // Incremente le timer
 
   // Sérialiser.
-  idle::PauseTimerState state = timer1.serialize();
+  // Ce qui traverse le sommeil est une durée, pas une date : la pause a
+  // commence a 1000 et on serialise a 2000, soit une seconde ecoulee.
+  idle::PauseTimerState state = timer1.serialize(2000);
 
   // Vérifier les valeurs capturées.
   TEST_ASSERT_TRUE(state.paused);
-  TEST_ASSERT_EQUAL_UINT32(1000, state.paused_since_ms);
+  TEST_ASSERT_EQUAL_UINT32(1000, state.paused_ms);
   TEST_ASSERT_EQUAL_STRING("Salon", state.zone);
 
-  // Créer un nouveau timer et restaurer.
+  // Créer un nouveau timer et restaurer, dans une époque neuve et sans
+  // sommeil credite : la duree ecoulee doit se retrouver telle quelle.
   idle::PauseTimer timer2;
-  timer2.deserialize(state);
+  timer2.deserialize(state, 500, 0);
 
   // Vérifier que le nouvel état est identique au premier.
-  idle::PauseTimerState state2 = timer2.serialize();
+  idle::PauseTimerState state2 = timer2.serialize(500);
   TEST_ASSERT_TRUE(state2.paused);
-  TEST_ASSERT_EQUAL_UINT32(1000, state2.paused_since_ms);
+  TEST_ASSERT_EQUAL_UINT32(1000, state2.paused_ms);
   TEST_ASSERT_EQUAL_STRING("Salon", state2.zone);
 }
 
@@ -51,7 +54,7 @@ void test_pause_timer_zone_truncation() {
   std::string long_zone(100, 'X');
   timer.expired(1000, false, long_zone);
 
-  idle::PauseTimerState state = timer.serialize();
+  idle::PauseTimerState state = timer.serialize(1000);
   TEST_ASSERT_EQUAL_UINT32(31, strlen(state.zone));  // 32 - 1 null term
 }
 
