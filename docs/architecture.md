@@ -138,9 +138,38 @@ constatées sur le matériel :
   avant de se rendormir : le boîtier serait resté éveillé dix minutes pour une minute de
   sommeil. `resumeAfterWake()` antidate l'inactivité après un réveil par minuterie, si bien
   que le sommeil reprend dès le sondage terminé.
+- **Le compte à rebours de pause était faussé, et l'écran restait figé.** Symptôme observé :
+  une zone mise en pause gardait sa fiche à l'écran indéfiniment, sans jamais rendre la place
+  à la météo. La sauvegarde en mémoire RTC conservait un `millis()` **absolu** ; relu après un
+  réveil, dans une horloge repartie de zéro, il donnait un écart *négatif*. Les cinq minutes
+  ne pouvaient plus échoir.
 
 Le cycle mesuré est alors : réveil, Wi-Fi, sondage, aucun redessin, rendormissement — soit
 quelques secondes éveillé par minute.
+
+### La règle : une date n'a de sens que dans son époque
+
+Les trois pertes ci-dessus sont trois manifestations d'une seule : `millis()` compte le temps
+depuis le démarrage, et le deep sleep crée un nouveau démarrage. Une valeur d'`millis()`
+écrite avant un sommeil et relue après ne mesure plus rien.
+
+Ce qui traverse le sommeil doit donc être une **durée**, jamais une date — c'est ce que fait
+`PauseTimerState::paused_ms` — et le réveil doit **créditer le temps réellement dormi**
+(`PauseTimer::deserialize(state, now_ms, slept_ms)`, alimenté par la durée que `main.cpp`
+range dans `rtc::State::sleep_duration_ms` juste avant de s'endormir).
+
+Les deux moitiés comptent, et pour des raisons différentes :
+
+- sans le rebasage, l'écart devient négatif et le délai n'échoit **jamais** ;
+- sans le crédit du sommeil, seul l'éveil est compté : un boîtier qui dort par tranches d'une
+  minute ne veille que quelques secondes par minute, et cinq minutes de grâce prendraient
+  des **heures**.
+
+`SleepManager` portait exactement le même défaut et n'y a échappé que par accident :
+`resumeAfterWake()`, écrit pour une tout autre raison, écrase la valeur restaurée avant
+qu'elle ne serve. Le motif était donc présent en double, à moitié masqué — et c'est le genre
+de chose qu'on ne voit qu'en cherchant les frères d'un défaut plutôt qu'en réparant celui
+qu'on a sous les yeux.
 
 ## Entrée en deep sleep
 
@@ -149,5 +178,14 @@ Au-delà de 10 minutes sans activité musicale, il entre en deep sleep par tranc
 Un sondage s'effectue à chaque réveil du timer ou du bouton. Avec `ext1`, les trois boutons
 réveillent et déclenchent leur action.
 
-La consommation en deep sleep doit être mesurée sur le matériel : voir
+La consommation a été mesurée sur le matériel, au wattmètre USB : **0,050 W** de moyenne sur
+un cycle de sommeil, contre **0,31 W** éveillé — facteur 6,2. Le plancher est de 0,028 W, et
+il ne vient pas du processeur mais de la carte elle-même (pont série, régulateurs, circuit de
+charge) : aucun firmware ne descendra dessous. Relevé complet dans
+[tasks/l19-validation.md](../tasks/l19-validation.md), synthèse dans
 [docs/hardware.md](hardware.md).
+
+Dormir **aussi pendant la lecture** a été implémenté et mesuré — 0,116 W, soit 64 h
+d'autonomie au lieu de 23 — mais l'option `SONOS_SLEEP_WHILE_PLAYING` est livrée désactivée :
+les commandes venues de Home Assistant sont perdues si elles arrivent pendant un sommeil, ce
+qui a été vérifié et non supposé.

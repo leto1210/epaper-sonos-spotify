@@ -3,36 +3,27 @@
 Une livraison = un commit autonome et flashable. On ne passe pas à la suivante tant que le
 test de la précédente ne passe pas.
 
-## Reprise — séance du 10 août 2026, hors matériel
+## État au 14 août 2026
 
-Le boîtier ne sera pas branché : tout ce qui suit se fait au clavier, avec
-`pio test -e native` et `pio run` comme seuls juges. Le matériel servira ensuite à valider.
+**L0 à L20 terminées et validées sur le matériel**, 132 tests au vert. Le boîtier tourne au
+mur, batterie remise en place — la campagne de mesure est close, et elle exigeait de la
+retirer (voir L19).
 
-État au 9 août 2026 au soir : **L0 à L13 terminées et validées sur cible**, 81 tests au vert,
-huit commits locaux **non poussés** (`git log origin/main..main`).
-
-**État actuel (10 août, après L14) :** L14 complétée hors matériel — 91 tests, machine à états
-pure testée offline. L15 en cours : documentation mise à jour (architecture, README), en
-attente des photos et captures HA.
-
-Il reste :
-
-1. **L15 — finition.** Photo du panneau au mur (`docs/images/device.jpg`, attendue pour
-   compléter le README), capture des neuf entités Home Assistant. Le schéma d'architecture
-   a été mis à jour pour inclure SLEEP et les détails du 10-minute seuil + 60 s tranches.
-   
-2. **Validation matériel de L14 et L15.** Deep sleep — power draw, GPIO4 interrupt, 60 s
-   timer. Photos et captures HA ne peuvent être produites que sur le boîtier réel ou une
-   instance Home Assistant en fonctionnement.
-
-**Refonte énergie : mesurée, et conservée.** Le cycle de sommeil divise la consommation par
-6,2 quand rien ne joue — 0,050 W contre 0,31 W éveillé. Relevé complet dans
+**La refonte énergie est terminée.** Le cycle de sommeil divise la consommation par 6,2 quand
+rien ne joue : 0,050 W contre 0,31 W éveillé. Relevé complet dans
 [`tasks/l19-validation.md`](l19-validation.md).
 
-Reste ouvert, et c'était l'objectif affiché du brief : **dormir aussi pendant la lecture**.
-Tant que la musique joue, le boîtier tient 0,31 W. Un sommeil entre sondages de 20 s
-ramènerait à ~0,095 W, au prix d'un retard pouvant aller jusqu'à 20 s sur un changement de
-morceau — à mettre en regard des 37 s que met déjà l'écran à se redessiner.
+**La dernière question du brief est tranchée**, et elle l'est par la mesure, pas par
+l'extrapolation. Dormir aussi *pendant la lecture* est implémenté sous l'option
+`SONOS_SLEEP_WHILE_PLAYING` : 0,1162 W contre 0,3149 W, soit 64 h d'autonomie au lieu de 23.
+L'option est néanmoins **livrée désactivée** — les commandes venues de Home Assistant sont
+perdues quand elles arrivent pendant un sommeil, ce qui a été vérifié sur le matériel. Pour un
+boîtier alimenté en permanence, la fiabilité du pilotage vaut mieux qu'une autonomie qu'on
+n'utilise pas.
+
+Il ne reste que **L15 — finition**, et ce qui manque ne dépend pas du code : la photo du
+panneau au mur (`docs/images/device.jpg`, encore un `TODO` dans le README) et une capture des
+onze entités Home Assistant. Le reste de la documentation est à jour.
 
 Deux points à ne pas oublier :
 
@@ -81,7 +72,7 @@ les captures réelles de `test/fixtures/`) et ce qui exige le boîtier branché.
         qu'elle joue, puis stable ; 11 tests
 - [x] **L14** — Veille et deep sleep
       → `pio test -e native` au vert (10 nouveaux tests + 81 existants), intégration
-        dans main.cpp avec esp_deep_sleep() ; 91/91 tests ; validation matériel en suspens
+        dans main.cpp avec esp_deep_sleep() ; validée sur matériel depuis, en L19 et L20
 - [~] **L15** — Finition doc : photos, captures HA, architecture mise à jour
       → photo de l'écran météo dans le README ; restent la photo du panneau au mur et
         une capture des entités HA
@@ -120,6 +111,23 @@ sommeil quand rien ne joue est mesuré et acquis ; la part « pendant la lecture
       → **la mesure n'a de sens que batterie retirée** : branchée, le chargeur limite le
         courant d'entrée et un rafraîchissement de 37 s devient invisible
       → relevé complet et verdict dans [l19-validation.md](l19-validation.md)
+
+- [x] **L20** — Le compte à rebours de pause survit au sommeil (14 août 2026, d0f29ba)
+      → **signalé par l'usage, pas par un test** : « l'écran reste figé sur la pause »
+      → cause : la mémoire RTC conservait un `millis()` **absolu**. Le deep sleep repasse par
+        `setup()` et `millis()` y repart de zéro ; relue dans cette époque neuve, la date
+        donnait un écart *négatif* et les cinq minutes n'échoyaient jamais
+      → correctif : on persiste une **durée écoulée**, et le réveil crédite le temps dormi
+        (`rtc::State::sleep_duration_ms`). Sans ce crédit, un boîtier dormant par tranches
+        d'une minute aurait mis des heures à atteindre cinq minutes de grâce
+      → deux tests dans `test/test_pause/test_pause.cpp`, dont un qui **échoue sur l'ancien
+        code** — c'est lui qui prouve qu'on a corrigé la bonne chose ; l'autre vérifie le sens
+        inverse, que le sommeil crédité ne déclenche pas la bascule d'avance
+      → validé sur cible : bascule vers la météo à 218 s de pause, rafraîchissement #2 en
+        37,5 s, puis huit sondages sans redessiner
+      → `SleepManager` portait le même défaut, masqué par `resumeAfterWake()` qui écrase la
+        valeur restaurée. La règle générale est écrite dans
+        [docs/architecture.md](../docs/architecture.md)
 
 ## Revue
 
@@ -286,7 +294,9 @@ réveil, et le débordement de `millis()` au bout de 49 jours. Un seul point man
 passage (re-entrée en sommeil après réveil sur timer) — corrigé dans `inactive_since_ms_`
 en le réinitialisant à la date de réveil plutôt qu'à 0.
 
-**Validation matériel en suspens :** consommation en deep sleep, GPIO4 interrupt, durée réelle.
+**Validé sur matériel depuis (L19) :** consommation mesurée au wattmètre — 0,050 W en cycle de
+sommeil contre 0,31 W éveillé — et réveil par les trois boutons en `ext1`. Un défaut est
+apparu ensuite à l'usage, que ces tests ne pouvaient pas voir : voir L20.
 
 ### L13 (partielle, sans matériel)
 L'écran météo prend la place du morceau quand plus aucune zone ne sait ce qu'elle joue —

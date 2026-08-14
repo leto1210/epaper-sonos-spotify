@@ -122,7 +122,8 @@ Mesuré sur 8,5 minutes de lecture continue : **aucun** des 439 échantillons ne
 0,06 W. Le boîtier ne s'endort jamais tant que la musique joue — la prémisse du brief
 énergie, désormais vérifiée par la mesure et non par la lecture du code.
 
-Deux pistes ont été écartées après essai, et une reste ouverte :
+Trois pistes ont été essayées, aucune n'est restée : deux écartées, une retenue puis livrée
+désactivée.
 
 - **Abaisser la fréquence du processeur à 80 MHz** : abandonné. Le rafraîchissement passait
   de 37,3 s à 41,0 s. Or c'est le panneau qui consomme pendant un redessin ; il restait

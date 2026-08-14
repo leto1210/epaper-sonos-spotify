@@ -252,6 +252,22 @@ Le gain est réel. Le prix aussi, et il ne se limite pas à la réactivité :
 Le boîtier étant conçu pour rester alimenté, on préfère la fiabilité du pilotage à une
 autonomie qu'on n'utilise pas. L'option existe, documentée, pour qui voudrait l'inverse.
 
+### Ce que la campagne a fait apparaître par surcroît
+
+Laisser le boîtier tourner des heures d'affilée pour le mesurer est précisément ce qui a
+exposé un défaut sans rapport avec l'énergie : **l'écran restait figé sur un morceau en
+pause**, sans jamais basculer vers la météo. Le compte à rebours de grâce conservait un
+`millis()` absolu en mémoire RTC, inutilisable après un réveil.
+
+Ce défaut exige, pour se manifester, qu'un sommeil survienne pendant une pause. Aucune séance
+courte ne l'aurait rencontré — et c'est un argument pour la mesure longue au-delà de son
+objet : elle place le firmware dans des régimes que l'essai dirigé ne visite pas. Correctif et
+validation en L20 de [todo.md](todo.md).
+
+**Campagne close.** La batterie est remise en place. Rappel pour une éventuelle reprise : elle
+doit être retirée pour toute nouvelle mesure, faute de quoi le chargeur limite le courant
+d'entrée et masque l'activité.
+
 ### La limite qu'aucun firmware ne franchira
 
 Le plancher mesuré est de **0,0284 W, soit 5,4 mA sous 5,24 V** — très au-dessus des quelques

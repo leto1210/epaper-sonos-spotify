@@ -53,6 +53,28 @@ Pour les hypothèses sur le monde extérieur — « une enceinte qui joue sait c
 seule la confrontation au réel tranche. En tirer un test **après** l'observation, en nommant le
 cas réel dans le commentaire.
 
+## Un correctif révèle un motif : chercher ses frères
+
+**Ce qui s'est passé.** Thomas a signalé « l'écran reste figé sur la pause ». Le compte à
+rebours de grâce conservait un `millis()` **absolu** en mémoire RTC ; le deep sleep repasse par
+`setup()`, où `millis()` repart de zéro, et la date relue dans cette époque neuve donnait un
+écart négatif. Le délai ne pouvait plus échoir.
+
+**Pourquoi c'est arrivé.** J'avais déjà rencontré ce motif, et je ne l'ai pas reconnu.
+`SleepManager` persiste lui aussi un `millis()` en RTC — il n'échappe au défaut que parce que
+`resumeAfterWake()`, écrit pour une raison sans rapport, écrase la valeur restaurée avant
+qu'elle ne serve. J'avais réparé un symptôme sans nommer la classe de défauts dont il
+relevait, si bien que le second exemplaire est resté en place, à quelques lignes du premier.
+
+**La règle.** Quand un correctif met au jour un motif — ici « une date `millis()` traverse le
+deep sleep » —, le nommer, puis **chercher ses autres occurrences** avant de refermer. Un
+`grep` sur ce qui entre en mémoire RTC coûtait quelques secondes.
+
+Corollaire pour ce genre de compteur : ce qui traverse un sommeil doit être une **durée**, et
+le réveil doit **créditer le temps dormi**. Omettre la seconde moitié ne casse rien de visible
+tout de suite — le délai s'écoule simplement des dizaines de fois trop lentement, ce qui se
+diagnostique bien plus mal qu'une panne franche.
+
 ## L'utilisateur voit ce que je ne peux pas voir
 
 Trois défauts d'affichage — bandeau désaligné, tiers d'écran vide, faux zéros des capteurs —
