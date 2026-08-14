@@ -24,6 +24,11 @@
 #include "sonos_client.h"
 #include "wifi_mgr.h"
 
+// Option récente : une `src/config.h` écrite avant elle ne la définit pas.
+#ifndef SONOS_SLEEP_WHILE_PLAYING
+#define SONOS_SLEEP_WHILE_PLAYING 0
+#endif
+
 namespace {
 
 const std::vector<std::string> kZonePriority = SONOS_ZONE_PRIORITY;
@@ -464,7 +469,14 @@ void pollAndRender() {
 
 void setup() {
   Serial.begin(115200);
-  delay(2000);  // laisse le temps au pont CH340 de s'ouvrir
+
+  // Deux secondes pour laisser le pont CH340 s'ouvrir, sans quoi les premières
+  // lignes du démarrage se perdent. Mais `setup()` est aussi le chemin de
+  // *chaque* réveil de deep sleep : au rythme d'un réveil toutes les vingt
+  // secondes, cette attente représentait à elle seule près d'un dixième du
+  // temps d'éveil, pour un confort de mise au point dont un réveil n'a que
+  // faire. Elle est donc réservée au démarrage à froid.
+  if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) delay(2000);
   Serial.printf("\n[boot] ePaper Spotify %s\n", epaper_spotify::kFirmwareVersion);
   Serial.printf("[boot] PSRAM libre : %u octets\n", ESP.getFreePsram());
 
@@ -602,7 +614,8 @@ void loop() {
   if (first_poll_done) {
     const bool user_activity_recent = (millis() - g_last_button_press_ms) < 2000UL;
     const power::Decision decision =
-        g_sleep_manager.updateAndDecide(millis(), g_anything_playing, user_activity_recent);
+        g_sleep_manager.updateAndDecide(millis(), g_anything_playing, user_activity_recent,
+                                        SONOS_SLEEP_WHILE_PLAYING != 0);
 
     if (decision.should_sleep) {
       Serial.printf("[veille] deep sleep pour %lu ms\n",

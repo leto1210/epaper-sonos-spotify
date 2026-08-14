@@ -27,6 +27,22 @@
 // en pause ne masquera jamais celle où la musique tourne réellement.
 #define SONOS_ZONE_PRIORITY {"Sonos Séjour", "Sonos Beam", "Sonos Cuisine"}
 
+// Dormir entre deux sondages **même pendant la lecture**, par tranches de 20 s.
+//
+// Mesuré : 0,315 W en lecture continue sans cette option, contre ~0,095 W avec.
+// Le gain est réel, mais il se paie, et pas seulement en réactivité :
+//
+//   - un changement de morceau met jusqu'à 20 s de plus à s'afficher, en sus
+//     des 37 s du rafraîchissement ;
+//   - surtout, **les commandes venues de Home Assistant sont perdues** si elles
+//     arrivent pendant un sommeil. La session MQTT n'est pas persistante, donc
+//     le broker ne met rien en file d'attente : appuyer sur « Rafraîchir » ou
+//     changer de zone n'a alors aucun effet.
+//
+// Laissée à 0 pour cette raison. Le boîtier étant conçu pour rester alimenté,
+// on préfère la fiabilité du pilotage à une autonomie qu'on n'utilise pas.
+#define SONOS_SLEEP_WHILE_PLAYING 0
+
 // Intervalle de sondage de Sonos, en secondes. Inutile de descendre bas :
 // un rafraîchissement de l'ePaper prend déjà 25-30 s.
 #define SONOS_POLL_INTERVAL_S 20

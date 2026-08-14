@@ -219,18 +219,38 @@ une mécanique nouvelle.
 **L'objectif affiché du brief — dormir aussi entre deux sondages pendant la lecture — n'est
 pas implémenté.** Tant que la musique joue, le boîtier reste à 0,31 W.
 
-### Ce que gagnerait la suite, et ce qu'elle coûterait
+### Dormir aussi pendant la lecture : implémenté, mesuré, laissé désactivé
 
-En extrapolant depuis les sept secondes d'éveil mesurées :
+L'option `SONOS_SLEEP_WHILE_PLAYING` fait dormir le boîtier par tranches de 20 s même
+pendant la lecture. Mesurée dans les mêmes conditions :
 
-| Intervalle de sondage pendant la lecture | Moyenne estimée | Autonomie | Retard sur un changement de morceau |
+| | moyenne | éveil | autonomie |
 |---|---|---|---|
-| aucun sommeil (aujourd'hui) | 0,31 W | 24 h | immédiat, puis 37 s de rendu |
-| 20 s | ~0,095 W | ~78 h | jusqu'à 20 s, puis 37 s |
-| 60 s | ~0,055 W | ~135 h | jusqu'à 60 s, puis 37 s |
+| sans l'option | 0,3149 W | 100 % | 23 h |
+| **avec l'option** | **0,1162 W** | 28 % | **64 h** |
 
-Le sondage de 20 s garde une réactivité honnête pour un écran qui met déjà 37 s à se
-redessiner, et gagne un facteur trois. Au-delà, on gagne peu et on attend beaucoup.
+Facteur **2,7**. L'extrapolation annonçait 0,095 W ; le réel est un peu moins bon, parce que
+le réveil coûte davantage que prévu : environ six secondes pour vingt de sommeil.
+
+Une seconde d'éveil a été récupérée au passage. Le `delay(2000)` qui laisse le pont CH340
+s'ouvrir s'exécutait à **chaque** réveil, `setup()` étant le chemin commun du démarrage et du
+réveil. Il est désormais réservé au démarrage à froid : l'éveil tombe de 32 % à 28 % du
+temps. L'énergie, elle, ne bouge presque pas — cette attente précède l'allumage de la radio,
+elle coûtait du temps plus que des watts.
+
+### Pourquoi l'option reste désactivée
+
+Le gain est réel. Le prix aussi, et il ne se limite pas à la réactivité :
+
+- un changement de morceau met **jusqu'à 20 s de plus** à s'afficher, en sus des 37 s du
+  rafraîchissement ;
+- surtout, **les commandes venues de Home Assistant sont perdues** si elles arrivent pendant
+  un sommeil. Vérifié : bouton « Rafraîchir » actionné pendant une tranche de sommeil,
+  jamais reçu par le boîtier. La session MQTT n'est pas persistante — `PubSubClient` ne sait
+  pas ouvrir de session durable — donc le broker ne met rien en file d'attente.
+
+Le boîtier étant conçu pour rester alimenté, on préfère la fiabilité du pilotage à une
+autonomie qu'on n'utilise pas. L'option existe, documentée, pour qui voudrait l'inverse.
 
 ### La limite qu'aucun firmware ne franchira
 

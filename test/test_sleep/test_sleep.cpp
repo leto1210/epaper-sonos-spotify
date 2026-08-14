@@ -197,8 +197,55 @@ void test_resume_after_wake_yields_to_playback() {
   TEST_ASSERT_FALSE(mgr.updateAndDecide(now, true, false).should_sleep);
 }
 
+// --- Sommeil pendant la lecture (option) -------------------------------------
+
+// Par défaut, la musique interdit le sommeil : c'est le comportement livré.
+void test_playback_forbids_sleep_by_default() {
+  power::SleepManager mgr;
+  uint32_t now = 5000;
+  for (int i = 0; i < 50; ++i, now += 20000) {
+    TEST_ASSERT_FALSE(mgr.updateAndDecide(now, true, false).should_sleep);
+  }
+}
+
+// Option activée : on dort entre deux sondages, par tranches courtes — la
+// tranche longue de 60 s ferait attendre un changement de morceau.
+void test_playback_sleeps_in_short_slices_when_enabled() {
+  power::SleepManager mgr;
+  const power::Decision decision = mgr.updateAndDecide(5000, true, false, true);
+
+  TEST_ASSERT_TRUE(decision.should_sleep);
+  TEST_ASSERT_EQUAL_UINT32(power::kPlaybackSleepMs, decision.duration_ms);
+  TEST_ASSERT_TRUE(power::kPlaybackSleepMs < power::kSleepIntervalMs);
+}
+
+// Un appui de bouton suspend le sommeil : la commande doit partir, et la
+// rafale retomber, avant que le boîtier ne se rendorme.
+void test_a_recent_press_suspends_playback_sleep() {
+  power::SleepManager mgr;
+  TEST_ASSERT_FALSE(mgr.updateAndDecide(5000, true, true, true).should_sleep);
+  TEST_ASSERT_TRUE(mgr.updateAndDecide(9000, true, false, true).should_sleep);
+}
+
+// L'option ne touche pas au silence : dix minutes d'inactivité, puis des
+// tranches de 60 s, comme avant.
+void test_the_option_leaves_the_silent_case_untouched() {
+  power::SleepManager mgr;
+  uint32_t now = 1000;
+  TEST_ASSERT_FALSE(mgr.updateAndDecide(now, false, false, true).should_sleep);
+
+  now += power::kInactivityThresholdMs;
+  const power::Decision decision = mgr.updateAndDecide(now, false, false, true);
+  TEST_ASSERT_TRUE(decision.should_sleep);
+  TEST_ASSERT_EQUAL_UINT32(power::kSleepIntervalMs, decision.duration_ms);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_playback_forbids_sleep_by_default);
+  RUN_TEST(test_playback_sleeps_in_short_slices_when_enabled);
+  RUN_TEST(test_a_recent_press_suspends_playback_sleep);
+  RUN_TEST(test_the_option_leaves_the_silent_case_untouched);
   RUN_TEST(test_resume_after_wake_sleeps_again_without_a_new_countdown);
   RUN_TEST(test_resume_after_wake_yields_to_playback);
   RUN_TEST(test_playing_never_sleeps);

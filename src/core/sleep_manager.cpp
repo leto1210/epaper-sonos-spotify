@@ -28,14 +28,25 @@ void SleepManager::deserialize(const SleepManagerState& state) {
 Decision SleepManager::updateAndDecide(
     uint32_t now_ms,
     bool anything_playing,
-    bool user_activity_recent) {
+    bool user_activity_recent,
+    bool sleep_during_playback) {
   Decision result;
   result.should_sleep = false;
   result.duration_ms = kSleepIntervalMs;
 
-  // Si quelque chose joue, réinitialiser le compteur d'inactivité.
+  // Si quelque chose joue, réinitialiser le compteur d'inactivité : le délai
+  // de dix minutes ne concerne que le silence.
   if (anything_playing) {
     reset();
+
+    // Option `SONOS_SLEEP_WHILE_PLAYING`. Le sondage vient d'avoir lieu et
+    // l'écran est à jour : il n'y a plus rien à faire jusqu'au suivant, autant
+    // dormir. Un appui de bouton récent suspend la décision, le temps que la
+    // commande parte et que la rafale retombe.
+    if (sleep_during_playback && !user_activity_recent) {
+      result.should_sleep = true;
+      result.duration_ms = kPlaybackSleepMs;
+    }
     return result;
   }
 

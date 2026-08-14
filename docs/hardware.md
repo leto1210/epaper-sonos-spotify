@@ -130,10 +130,10 @@ Deux pistes ont été écartées après essai, et une reste ouverte :
   coûteux.
 - **Mettre le panneau en veille** : déjà fait par `Seeed_GFX`, qui appelle `EPD_SLEEP()` à la
   fin de chaque mise à jour.
-- **Dormir aussi entre deux sondages pendant la lecture** : c'est le seul vrai levier. L'image
-  d'un ePaper est bistable, elle survit au sommeil. Il faudrait accepter un réveil Wi-Fi par
-  sondage (~1,7 s) et faire réveiller les trois boutons par `ext1` au lieu du seul GPIO4.
-  Non implémenté.
+- **Dormir aussi entre deux sondages pendant la lecture** : implémenté et mesuré, sous
+  l'option `SONOS_SLEEP_WHILE_PLAYING`, mais **laissée désactivée**. 0,116 W au lieu de
+  0,315 W, soit 64 h d'autonomie au lieu de 23 — au prix de la perte des commandes venues de
+  Home Assistant pendant un sommeil, vérifiée. Voir `tasks/l19-validation.md`.
 
 Attention à la méthode de mesure : ouvrir le port série **réinitialise l'ESP32** par DTR/RTS.
 Un boîtier observé à la console est donc un boîtier qui vient de redémarrer, et qui réclame
