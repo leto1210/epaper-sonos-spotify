@@ -36,6 +36,27 @@ constexpr uint32_t kSafetyMarginMs =
 // « online » pour éviter des bascules inutiles dans Home Assistant.
 constexpr uint32_t kShortSleepMaxMs = 2 * 60 * 1000;
 
+// Un message retenu part du broker dès l'abonnement, mais il n'existe pour le
+// boîtier qu'une fois la socket dépilée. Or le premier rendu suit
+// l'abonnement dans la même itération de boucle : sans attente explicite, le
+// bulletin météo n'est jamais lu, et l'écran se rabat indéfiniment sur la
+// copie en mémoire RTC, qui finit par être déclarée périmée.
+//
+// Une demi-seconde suffit largement sur un LAN ; ce n'est pas un délai
+// d'attente réseau, seulement le temps de lire ce qui est déjà arrivé.
+constexpr uint32_t kRetainedDeliveryTimeoutMs = 500;
+
+// Cette attente s'ajoute au coût du réveil : elle doit rester compatible avec
+// le keepalive, sans quoi le remède rouvrirait le défaut qu'il corrige.
+static_assert(kSleepIntervalMs + kMaxWakeupCostMs + kRetainedDeliveryTimeoutMs < kKeepAliveMs,
+              "Retained-delivery wait pushes the wake cycle past the broker keepalive");
+
+// Vrai tant qu'il faut continuer à dépiler la socket en attendant un message
+// retenu. S'arrête dès la réception, ou au bout du délai.
+inline bool keepWaitingForRetained(bool received, uint32_t waited_ms) {
+    return !received && waited_ms < kRetainedDeliveryTimeoutMs;
+}
+
 enum class AvailabilityPolicy {
     kKeepOnlineRetained,
     kPublishOfflineRetained,

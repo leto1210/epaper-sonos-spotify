@@ -97,6 +97,27 @@ il se parle à lui-même. L'effacement d'une commande retenue est arrivé en ret
 nouvelle commande, et le buzzer a bipé en continu. Toute publication sur un sujet auquel on
 est abonné doit être pensée comme une entrée à valider, pas comme une écriture.
 
+## Un repli masque le défaut qu'il compense
+
+**Ce qui s'est passé.** L'écran affichait « Meteo perimee » alors que le broker portait un
+bulletin de quinze minutes. Le boîtier ne lisait jamais le message retenu : il s'abonnait,
+puis composait l'écran dans la même itération de boucle, sans que rien n'ait dépilé la socket
+entre-temps. Le rapport paraissait donc absent, la copie en mémoire RTC prenait le relais — et
+comme elle n'est mise à jour que lorsqu'un bulletin frais est disponible, elle vieillissait
+sans fin.
+
+**Pourquoi c'est arrivé.** J'avais écrit ce repli en attribuant les livraisons manquées à la
+brièveté de l'éveil. C'était une explication plausible, jamais vérifiée, et fausse : le
+problème n'était pas la durée mais l'**ordre**. Le repli fonctionnant assez bien pour que rien
+ne se voie, l'hypothèse n'a plus jamais été remise en question — jusqu'à ce que la donnée
+conservée franchisse le seuil de péremption, des heures plus tard.
+
+**La règle.** Un repli doit être posé sur une cause **constatée**, pas sur une cause supposée ;
+et il doit rendre le recours visible (journal, compteur), faute de quoi il transforme un défaut
+franc en dérive lente. Corollaire MQTT : un message retenu n'existe qu'une fois la socket lue.
+S'abonner ne suffit pas — il faut appeler la boucle du client entre l'abonnement et la première
+lecture de la donnée.
+
 ## L'utilisateur voit ce que je ne peux pas voir
 
 Trois défauts d'affichage — bandeau désaligné, tiers d'écran vide, faux zéros des capteurs —

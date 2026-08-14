@@ -120,6 +120,13 @@ Deux détails qui ont l'air anodins et ne le sont pas :
   dernière météo publiée si l'automatisation s'arrêtait. Le firmware considère un rapport de
   plus de deux heures comme périmé et l'affiche comme tel, plutôt que de présenter des
   valeurs anciennes avec l'aplomb des valeurs fraîches.
+  Attention au corollaire, découvert en exploitation : un message retenu part du broker dès
+  l'abonnement, mais il n'existe pour le boîtier qu'une fois la socket **dépilée**. Le premier
+  rendu suivant l'abonnement de quelques millisecondes, le firmware laisse une demi-seconde à
+  la livraison (`mqtt::awaitWeatherReport()`) avant de composer l'écran. Sans cette attente, le
+  bulletin frais dormait dans la socket, la copie en mémoire RTC servait à sa place, vieillissait
+  sans jamais être remplacée, et l'écran finissait par annoncer « Meteo perimee » alors que le
+  broker portait un bulletin de quinze minutes.
 - `cond` reprend le vocabulaire de Home Assistant (`sunny`, `clear-night`, `partlycloudy`,
   `lightning-rainy`…), traduit côté firmware en pictogrammes. Une valeur inconnue s'affiche
   neutre plutôt que de faire échouer la lecture du payload.

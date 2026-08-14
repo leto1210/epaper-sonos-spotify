@@ -258,10 +258,13 @@ void renderLineIn(const std::string& zone) {
 void renderWeather() {
   const sensors::Reading measures = sensors::read();
 
-  // Le bulletin vient du réseau, mais il doit survivre au deep sleep : le
-  // sujet MQTT est retenu, l'abonnement le renvoie — sans que la livraison
-  // tienne toujours dans les trois secondes d'éveil. Sans conservation,
-  // l'écran annonçait « Météo indisponible » alors que la donnée existait.
+  // Le bulletin vient du réseau et arrive dès l'abonnement, le sujet étant
+  // retenu — mais il faut encore le lire. Ce rendu suit l'abonnement de
+  // quelques millisecondes : sans cette attente, le message dort dans la
+  // socket et le boîtier croit n'avoir jamais rien reçu.
+  mqtt::awaitWeatherReport();
+
+  // La copie en mémoire RTC reste le filet pour les réveils sans réseau.
   weather::Report report = mqtt::weatherReport();
   if (report.valid) {
     g_rtc_weather = weather::toRtc(report);

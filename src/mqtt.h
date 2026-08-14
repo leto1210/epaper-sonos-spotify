@@ -35,6 +35,11 @@ void publishTrack(const ha::Track& track);
 void beforeDeepSleep(uint32_t sleep_duration_ms);
 
 
+// Laisse au bulletin retenu le temps d'être lu sur la socket, si rien n'a
+// encore été reçu. Retour immédiat si la météo est déjà là ou si la liaison
+// est absente. Renvoie vrai si un bulletin est disponible.
+bool awaitWeatherReport();
+
 // Dernière météo reçue de Home Assistant. Le sujet étant retenu par le broker,
 // elle arrive dès l'abonnement, sans attendre la prochaine publication.
 // `valid` reste faux tant que rien n'a été reçu.

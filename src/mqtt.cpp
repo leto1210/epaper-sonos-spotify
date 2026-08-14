@@ -183,6 +183,24 @@ void beforeDeepSleep(uint32_t sleep_duration_ms) {
   g_client.disconnect();
 }
 
+bool awaitWeatherReport() {
+  if (g_weather.valid || !isConnected()) return g_weather.valid;
+
+  const uint32_t started = millis();
+  while (mqtt_timing::keepWaitingForRetained(g_weather.valid, millis() - started)) {
+    g_client.loop();
+    delay(10);
+  }
+
+  if (g_weather.valid) {
+    Serial.printf("[mqtt] bulletin retenu lu en %lu ms\n",
+                  static_cast<unsigned long>(millis() - started));
+  } else {
+    Serial.println("[mqtt] aucun bulletin retenu dans le delai");
+  }
+  return g_weather.valid;
+}
+
 const weather::Report& weatherReport() { return g_weather; }
 
 void publishZoneOptions(const std::vector<std::string>& zones) {

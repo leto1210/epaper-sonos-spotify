@@ -41,6 +41,24 @@ void test_long_sleep_publishes_offline() {
                         policy);
 }
 
+// L'attente du message retenu s'arrête à la réception, pas au bout du délai :
+// tenir la demi-seconde à chaque réveil coûterait de la batterie pour rien.
+void test_retained_wait_stops_on_delivery() {
+  TEST_ASSERT_TRUE(mqtt_timing::keepWaitingForRetained(false, 0));
+  TEST_ASSERT_FALSE(mqtt_timing::keepWaitingForRetained(true, 0));
+  TEST_ASSERT_FALSE(mqtt_timing::keepWaitingForRetained(true, 10));
+}
+
+// Et elle s'arrête aussi si rien n'arrive : un broker muet ne doit pas retenir
+// le boîtier éveillé.
+void test_retained_wait_expires() {
+  TEST_ASSERT_TRUE(
+      mqtt_timing::keepWaitingForRetained(false, mqtt_timing::kRetainedDeliveryTimeoutMs - 1));
+  TEST_ASSERT_FALSE(
+      mqtt_timing::keepWaitingForRetained(false, mqtt_timing::kRetainedDeliveryTimeoutMs));
+  TEST_ASSERT_FALSE(mqtt_timing::keepWaitingForRetained(false, 60000));
+}
+
 }  // namespace
 
 void setUp() {}
@@ -55,6 +73,8 @@ int main(int argc, char* argv[]) {
   RUN_TEST(test_keepalive_is_sufficient);
   RUN_TEST(test_short_sleep_keeps_online);
   RUN_TEST(test_long_sleep_publishes_offline);
+  RUN_TEST(test_retained_wait_stops_on_delivery);
+  RUN_TEST(test_retained_wait_expires);
 
   return UNITY_END();
 }
