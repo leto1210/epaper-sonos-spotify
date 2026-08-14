@@ -79,17 +79,41 @@ barres pleines, faute d'un gris que le panneau n'a pas.
 
 Le défaut ne se voit sur aucun aperçu : il faut photographier le panneau.
 
-## Consommation : où passe le watt
+## Consommation : ce que la prise USB montre, et ce qu'elle cache
 
-Mesuré à la prise USB : **environ 1 W**, soit ~200 mA sous 5 V. C'est cohérent avec un
-ESP32-S3 dont la radio Wi-Fi est associée, et sans commune mesure avec le deep sleep, qui se
-compte en microampères. Autrement dit, ce watt est celui de l'**état éveillé**, pas du
-sommeil.
+**Batterie branchée, la mesure à la prise ne veut rien dire.** Le chargeur du reTerminal
+limite le courant d'entrée. Quand l'ESP32 consomme plus, le chargeur prend simplement moins
+pour la batterie, et le total ne bouge pas. Mesuré au POWER-Z KM003C, batterie à 100 % :
+
+| | puissance moyenne |
+|---|---|
+| au repos | 2,211 W |
+| **pendant un rafraîchissement de 37 s** | 2,220 W |
+| après | 2,207 W |
+
+Un rafraîchissement complet du panneau est **invisible**, et le courant reste à 0,4202 A d'un
+échantillon à l'autre — la signature d'une régulation, pas d'une consommation.
+
+**Batterie retirée, les chiffres deviennent vrais :**
+
+| | puissance |
+|---|---|
+| au repos, Wi-Fi associé | **0,31 W** (0,23 à 0,52) |
+| pendant un rafraîchissement de 37 s | 0,34 W (0,27 à 0,44) |
+
+Soit **environ 60 mA sous 5,2 V**. Les 2,2 W précédents étaient donc à plus de 85 % de la
+charge de la batterie. Et le rafraîchissement de l'ePaper, qu'on soupçonnait d'être coûteux,
+n'ajoute qu'un dixième de watt : **c'est la radio Wi-Fi qui domine**, pas le panneau.
+
+Conséquence pour toute mesure future : **retirer la batterie, ou attendre une charge
+réellement terminée.** Un « avant/après » pris batterie branchée donnerait deux fois le même
+chiffre et la conclusion fausse qu'une optimisation n'apporte rien.
 
 Le firmware ne dort que lorsque **rien n'a joué pendant dix minutes**. Tant que la musique
 tourne, le Wi-Fi reste allumé en permanence : c'est le régime nominal d'un afficheur branché,
-et le poste de consommation dominant. Sur la batterie de 2000 mAh (~7,4 Wh), cela donne un
-ordre de grandeur de **sept heures** — l'appareil est pensé pour rester alimenté.
+et le poste de consommation dominant. Sur la batterie de 2000 mAh (~7,4 Wh), 0,31 W donnent
+un ordre de grandeur de **vingt-quatre heures** — mieux que les sept heures estimées tant que
+la mesure était faussée par la charge, mais loin d'une autonomie de plusieurs jours.
 
 Deux pistes ont été écartées après essai, et une reste ouverte :
 

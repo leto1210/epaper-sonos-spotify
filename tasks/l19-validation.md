@@ -74,7 +74,15 @@ donc chiffre plus proche de **0,15–0,2 W** en conditions réelles.
 
 - [ ] Batterie chargée (mesurer voltage initial si possible)
 - [ ] Serial USB branché ET **détaché juste avant mesure** (DTR/RTS réinitialise la cible)
-- [ ] Multimètre prêt, calibré en DC 5V/2A
+- [ ] **Batterie retirée du boîtier.** Non négociable : batterie branchée, le chargeur limite
+      le courant d'entrée et absorbe toute variation. Mesuré, batterie à 100 % : 2,211 W au
+      repos contre 2,220 W pendant un rafraîchissement complet de 37 s — l'écart est dans le
+      bruit, et le courant tient à 0,4202 A d'un échantillon à l'autre. Batterie retirée, le
+      même boîtier consomme **0,31 W**. Un « avant/après » pris batterie branchée donnerait
+      deux fois 2,2 W et la conclusion fausse que la refonte n'apporte rien.
+- [ ] Multimètre prêt, calibré en DC 5V/2A — ou un POWER-Z KM003C, lisible en série depuis le
+      Mac (voir `tools/`), ce qui permet d'enregistrer une courbe plutôt que de lire un
+      afficheur. Fermer l'application ChargerLab d'abord : elle tient le port en exclusivité.
 - [ ] Sonos en réseau, une zone accessible
 - [ ] **Lecture en cours au Sonos Séjour**, et non sur une zone en pause. C'est le cas
       nominal — celui que la mesure doit refléter — et c'est aussi le pire pour la
