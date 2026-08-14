@@ -99,7 +99,9 @@ Un rafraîchissement complet du panneau est **invisible**, et le courant reste �
 | | puissance |
 |---|---|
 | au repos, Wi-Fi associé | **0,31 W** (0,23 à 0,52) |
-| pendant un rafraîchissement de 37 s | 0,34 W (0,27 à 0,44) |
+| **en lecture continue** | **0,315 W** (0,24 à 0,50) |
+| pendant un rafraîchissement de 37 s | 0,365 W |
+| cycle de sommeil, rien ne joue | **0,050 W** |
 
 Soit **environ 60 mA sous 5,2 V**. Les 2,2 W précédents étaient donc à plus de 85 % de la
 charge de la batterie. Et le rafraîchissement de l'ePaper, qu'on soupçonnait d'être coûteux,
@@ -112,8 +114,13 @@ chiffre et la conclusion fausse qu'une optimisation n'apporte rien.
 Le firmware ne dort que lorsque **rien n'a joué pendant dix minutes**. Tant que la musique
 tourne, le Wi-Fi reste allumé en permanence : c'est le régime nominal d'un afficheur branché,
 et le poste de consommation dominant. Sur la batterie de 2000 mAh (~7,4 Wh), 0,31 W donnent
-un ordre de grandeur de **vingt-quatre heures** — mieux que les sept heures estimées tant que
-la mesure était faussée par la charge, mais loin d'une autonomie de plusieurs jours.
+un ordre de grandeur de **vingt-trois heures** — mieux que les sept heures estimées tant que
+la mesure était faussée par la charge, mais loin d'une autonomie de plusieurs jours. Quand
+rien ne joue, le cycle de sommeil porte l'autonomie à environ **six jours**.
+
+Mesuré sur 8,5 minutes de lecture continue : **aucun** des 439 échantillons ne descend sous
+0,06 W. Le boîtier ne s'endort jamais tant que la musique joue — la prémisse du brief
+énergie, désormais vérifiée par la mesure et non par la lecture du code.
 
 Deux pistes ont été écartées après essai, et une reste ouverte :
 

@@ -184,9 +184,16 @@ afficher — le cas où la veille s'applique.
 |---|---|---|
 | Plancher de deep sleep | **0,0284 W** | 91 % |
 | Pointes d'éveil (Wi-Fi, sondage) | 0,287 W | 8 % |
-| **Moyenne du cycle** | **0,0501 W** | — |
-| Éveil permanent, pour comparaison | **0,31 W** | — |
-| Rafraîchissement de l'écran (37 s) | 0,34 W | — |
+| **Moyenne du cycle, rien ne joue** | **0,0501 W** | — |
+| **Lecture continue** (Sonos Bureau, 8,5 min) | **0,3149 W** | — |
+| Rafraîchissement de l'écran (37 s) | 0,365 W | — |
+
+En lecture continue, **aucun** des 439 échantillons ne descend sous 0,06 W : le boîtier ne
+s'endort jamais tant que la musique joue. C'est la prémisse du brief, désormais vérifiée par
+la mesure et non plus par la lecture du code.
+
+Le rafraîchissement n'ajoute que 0,05 W au-dessus du sondage seul (0,313 W) — confirmation
+que le panneau n'est pas le poste coûteux.
 
 Huit réveils en neuf minutes, soit un toutes les 67 s : la tranche de 60 s plus environ sept
 secondes d'éveil. Le cycle fonctionne exactement comme prévu.
@@ -195,7 +202,7 @@ secondes d'éveil. Le cycle fonctionne exactement comme prévu.
 
 | Situation | Autonomie |
 |---|---|
-| Lecture continue (jamais de sommeil) | **24 h** |
+| Lecture continue (jamais de sommeil) | **23 h** |
 | Rien ne joue, cycle de sommeil | **148 h**, soit six jours |
 
 ### Verdict
