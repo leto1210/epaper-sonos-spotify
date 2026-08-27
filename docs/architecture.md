@@ -105,14 +105,24 @@ ligne comme une lecture — donc comme une raison de ne pas s'endormir — que s
 vraiment `PLAYING`. Sans cette nuance, une entrée ligne oubliée tiendrait le boîtier éveillé
 indéfiniment.
 
+Ce même flou joue aussi dans l'autre sens : une entrée ligne peut rester sélectionnée sur une
+zone bien après que la platine ou l'ampli s'est tu, et Sonos ne le dit pas plus qu'il ne dit
+le contraire. L'écran s'appuie alors sur le même garde-fou que pour un morceau en pause :
+cinq minutes sans que la zone n'annonce `PLAYING`, et il cède la place à la météo
+(`g_line_in_timer`, la même classe `PauseTimer` que pour un morceau, mais une instance à
+part — une zone qui bascule d'un morceau à son entrée ligne ne doit pas hériter du compte à
+rebours de l'autre). Une reprise remet le compteur à zéro, exactement comme pour une pause.
+
 ## Quand l'écran passe à la météo
 
-Trois cas, tous vérifiés sur le matériel :
+Quatre cas, tous vérifiés sur le matériel :
 
 1. aucune zone ne joue ni n'est en pause ;
 2. plus aucune zone ne sait ce qu'elle joue — télévision ou silence ; l'entrée ligne, elle,
    a désormais son propre écran ;
-3. la zone affichée est **en pause depuis plus de cinq minutes**.
+3. la zone affichée est **en pause depuis plus de cinq minutes** ;
+4. l'entrée ligne affichée n'a **plus annoncé `PLAYING` depuis plus de cinq minutes** — même
+   délai de grâce, voir plus haut.
 
 Le troisième cas est venu de l'usage : une fiche de morceau figée depuis une demi-heure
 n'informe plus de rien. Cinq minutes couvrent une pause de circonstance sans laisser

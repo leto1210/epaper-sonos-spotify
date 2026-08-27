@@ -92,6 +92,10 @@ std::string g_forced_zone = ha::kAutoZone;
 
 idle::PauseTimer g_pause_timer;
 
+// Même minuteur que g_pause_timer, appliqué à une zone en entrée ligne : voir
+// la note dans pollAndRender() sur la raison de le tenir séparé.
+idle::PauseTimer g_line_in_timer;
+
 power::SleepManager g_sleep_manager;
 
 // Vrai quand la zone retenue joue vraiment. Réévalué à *chaque* sondage : il
@@ -384,6 +388,19 @@ void pollAndRender() {
   }
 
   if (!choice.found && !line_in_zone.empty()) {
+    // Cinq minutes sans PLAYING sur cette entrée ligne : plus vraisemblablement
+    // une source restée sélectionnée qu'une écoute en cours (l'état de
+    // transport reste le seul indice disponible, malgré sa fiabilité limitée —
+    // voir la note plus haut). Même politique que pause_timer pour un morceau :
+    // l'écran cède alors la place à la météo plutôt que de rester figé.
+    if (g_line_in_timer.expired(millis(), line_in_playing, line_in_zone)) {
+      Serial.printf("[sonos] entree ligne sur %s inactive depuis plus de 5 min, ecran meteo\n",
+                    line_in_zone.c_str());
+      g_anything_playing = false;
+      renderWeather();
+      return;
+    }
+
     Serial.printf("[sonos] entree ligne sur %s%s\n", line_in_zone.c_str(),
                   line_in_playing ? "" : " (transport inactif)");
     g_anything_playing = line_in_playing;
@@ -519,6 +536,13 @@ void setup() {
     // par bouton peut avoir écourté la tranche, on crédite alors un peu trop —
     // au plus une tranche, et l'appui provoque de toute façon un redessin.
     g_pause_timer.deserialize(pause_state, millis(), g_rtc_state.sleep_duration_ms);
+
+    idle::PauseTimerState line_in_state;
+    line_in_state.paused = g_rtc_state.line_in_timer_paused;
+    line_in_state.paused_ms = g_rtc_state.line_in_timer_elapsed_ms;
+    strncpy(line_in_state.zone, g_rtc_state.line_in_timer_zone, sizeof(line_in_state.zone) - 1);
+    line_in_state.zone[sizeof(line_in_state.zone) - 1] = '\0';
+    g_line_in_timer.deserialize(line_in_state, millis(), g_rtc_state.sleep_duration_ms);
 
     power::SleepManagerState sleep_state;
     sleep_state.inactive_since_ms = g_rtc_state.sleep_mgr_inactive_since_ms;
@@ -663,6 +687,12 @@ void loop() {
       g_rtc_state.pause_timer_elapsed_ms = pause_state.paused_ms;
       strncpy(g_rtc_state.pause_timer_zone, pause_state.zone, sizeof(g_rtc_state.pause_timer_zone) - 1);
       g_rtc_state.pause_timer_zone[sizeof(g_rtc_state.pause_timer_zone) - 1] = '\0';
+
+      idle::PauseTimerState line_in_state = g_line_in_timer.serialize(millis());
+      g_rtc_state.line_in_timer_paused = line_in_state.paused;
+      g_rtc_state.line_in_timer_elapsed_ms = line_in_state.paused_ms;
+      strncpy(g_rtc_state.line_in_timer_zone, line_in_state.zone, sizeof(g_rtc_state.line_in_timer_zone) - 1);
+      g_rtc_state.line_in_timer_zone[sizeof(g_rtc_state.line_in_timer_zone) - 1] = '\0';
 
       power::SleepManagerState sleep_state = g_sleep_manager.serialize();
       g_rtc_state.sleep_mgr_inactive_since_ms = sleep_state.inactive_since_ms;

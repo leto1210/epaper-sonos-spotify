@@ -29,6 +29,15 @@ struct State {
   uint32_t pause_timer_elapsed_ms = 0;
   char pause_timer_zone[kZoneNameLen] = {};
 
+  // Même mécanique, appliquée à une zone en entrée ligne que Sonos ne
+  // rapporte plus PLAYING (voir la note dans main.cpp::pollAndRender).
+  // Instance séparée de pause_timer_* : une même zone qui bascule d'un
+  // morceau à son entrée ligne ne doit pas hériter du compte à rebours
+  // de l'autre.
+  bool line_in_timer_paused = false;
+  uint32_t line_in_timer_elapsed_ms = 0;
+  char line_in_timer_zone[kZoneNameLen] = {};
+
   // Durée du sommeil qui vient d'être demandé, pour que le réveil sache
   // combien de temps créditer aux compteurs qui mesurent du temps réel.
   uint32_t sleep_duration_ms = 0;

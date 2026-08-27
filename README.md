@@ -30,7 +30,9 @@ raison, qui tient au panneau.*
 
 - Écran dédié pour une zone branchée sur son **entrée ligne** — platine, ampli : Sonos n'en
   livre aucune métadonnée, mais il y a du son, et l'écran le dit plutôt que d'afficher la
-  météo comme si la maison était silencieuse
+  météo comme si la maison était silencieuse ; passé cinq minutes sans que Sonos ne rapporte
+  de lecture sur cette entrée, l'écran repasse à la météo — une source oubliée sélectionnée
+  ne reste pas affichée indéfiniment
 
 ![L'écran d'entrée ligne](docs/images/line-in.jpg)
 
