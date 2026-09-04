@@ -12,15 +12,25 @@ namespace {
 // Intervalle minimal entre deux tentatives de reconnexion. Sans ce garde-fou,
 // une coupure du point d'accès fait tourner la boucle principale à vide.
 constexpr uint32_t kReconnectIntervalMs = 10000;
+// Au bout de quelques echecs consecutifs, on eteint completement la radio
+// avant de relancer : le pilote Wi-Fi de l'ESP32 reste parfois bloque apres
+// une coupure prolongee du point d'acces, et un simple begin() ne suffit
+// plus a le remettre d'aplomb.
+constexpr uint8_t kFailuresBeforeRadioReset = 3;
+// Dernier recours si meme la reinitialisation radio ne prend pas.
+constexpr uint8_t kFailuresBeforeReboot = 12;
 
 uint32_t g_last_reconnect_ms = 0;
+uint8_t g_reconnect_failures = 0;
 bool g_time_valid = false;
 
 }  // namespace
 
 bool connect(uint32_t timeout_ms) {
+  WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(true);  // le boîtier est sur batterie
+  WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.printf("[wifi] connexion a %s", WIFI_SSID);
@@ -38,17 +48,45 @@ bool connect(uint32_t timeout_ms) {
 
   Serial.printf("[wifi] %s, RSSI %d dBm, en %lu ms\n", ip().c_str(), rssi(),
                 millis() - started);
+  g_reconnect_failures = 0;
   return true;
 }
 
 void loop() {
-  if (WiFi.status() == WL_CONNECTED) return;
+  if (WiFi.status() == WL_CONNECTED) {
+    g_reconnect_failures = 0;
+    return;
+  }
 
   const uint32_t now = millis();
-  if (now - g_last_reconnect_ms < kReconnectIntervalMs) return;
+  if (g_last_reconnect_ms != 0 &&
+      now - g_last_reconnect_ms < kReconnectIntervalMs) {
+    return;
+  }
   g_last_reconnect_ms = now;
+  g_reconnect_failures++;
 
-  Serial.println("[wifi] lien perdu, reconnexion");
+  if (g_reconnect_failures >= kFailuresBeforeReboot) {
+    Serial.println("[wifi] trop d'echecs, redemarrage");
+    Serial.flush();
+    ESP.restart();
+    return;
+  }
+
+  if (g_reconnect_failures >= kFailuresBeforeRadioReset) {
+    Serial.printf("[wifi] echec %u, reinitialisation radio\n",
+                  g_reconnect_failures);
+    WiFi.disconnect(true, true);
+    WiFi.mode(WIFI_OFF);
+    delay(200);
+    WiFi.mode(WIFI_STA);
+    WiFi.setSleep(true);
+    WiFi.setAutoReconnect(true);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    return;
+  }
+
+  Serial.printf("[wifi] lien perdu, reconnexion (%u)\n", g_reconnect_failures);
   WiFi.disconnect();
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 }

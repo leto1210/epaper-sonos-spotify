@@ -27,7 +27,13 @@ Chaque enceinte répond avec un en-tête `LOCATION` contenant son IP.
 > zones, leurs IP, leurs coordinateurs) se déduit ensuite par SOAP depuis celle-ci.
 >
 > Dans cette configuration, le seul flux à autoriser est **TCP 1400** du boîtier vers le
-> sous-réseau des enceintes — il porte à la fois l'API et les pochettes.
+> sous-réseau des enceintes — il porte à la fois l'API et les pochettes. Attention : la
+> topologie renvoie **toutes** les enceintes, pas seulement le seed. La règle firewall doit
+> donc viser l'ensemble du parc (par ex. un address group "Sonos" couvrant la plage
+> `192.168.2.210-192.168.2.220` sur le montage de référence), pas la seule IP du seed.
+> Une règle qui autorise uniquement l'IP du seed passe la découverte mais bloque toutes
+> les zones ensuite — symptôme : "topologie indisponible" en boucle après un changement
+> d'IP côté Sonos.
 
 ## Topologie et coordinateur de groupe
 
