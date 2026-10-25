@@ -20,7 +20,7 @@ ligne et ce qui exige réellement le boîtier.
   et c'est là que doit aller toute nouvelle logique testable.
 - `src/` (racine) — couches matérielles : Wi-Fi, SPI, ADC, I²C, MQTT. Fines par construction,
   elles se contentent d'appeler `core/`.
-- `test/test_native/` — tests Unity.
+- `test/test_*/` — tests Unity, un répertoire par module (`test/test_sonos/`, `test/test_zones/`…).
 - `test/fixtures/` — réponses Sonos réelles, **anonymisées**.
 
 ## Fixtures
