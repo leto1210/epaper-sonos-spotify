@@ -11,10 +11,11 @@
 // IP d'une enceinte, n'importe laquelle : la topologie complète (toutes les
 // zones, leurs IP et leurs coordinateurs) s'en déduit par SOAP.
 //
-// Renseignez-la dès que le boîtier et les enceintes ne sont pas sur le même
-// VLAN — cas courant quand le boîtier est sur un SSID « objets connectés » :
-// la découverte SSDP repose sur du multicast, qui ne franchit pas un routeur.
-// Laissez vide uniquement si tout le monde est sur le même sous-réseau.
+// Renseignez-la dans tous les cas : le firmware n'implémente pas la découverte
+// SSDP, et sans adresse d'amorçage il n'obtient aucune topologie. Laissée vide,
+// il n'affiche rien. C'est indispensable dès que le boîtier est sur un SSID
+// « objets connectés » — un VLAN distinct de celui des enceintes, où le
+// multicast ne franchit pas le routeur.
 #define SONOS_SEED_IP "192.168.1.50"
 
 // Ordre de préférence quand plusieurs zones jouent en même temps.
