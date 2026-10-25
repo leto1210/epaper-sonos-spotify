@@ -3,10 +3,15 @@
 Une livraison = un commit autonome et flashable. On ne passe pas à la suivante tant que le
 test de la précédente ne passe pas.
 
-## État au 14 août 2026
+## État au 25 octobre 2026
 
-**L0 à L23 terminées**, 142 tests au vert. Le boîtier tourne au mur, batterie remise en place
-— la campagne de mesure est close, et elle exigeait de la retirer (voir L19).
+**L0 à L23 terminées**, 144 cas de test (`RUN_TEST`, comptés dans `test/`, non rejoués ici :
+le registre PlatformIO était bloqué dans la séance). Le boîtier tourne au mur, batterie remise
+en place — la campagne de mesure est close, et elle exigeait de la retirer (voir L19).
+
+**Depuis le 14 août** : délai d'inactivité de cinq minutes sur l'entrée ligne (27 août),
+reconnexion Wi-Fi durcie et périmètre firewall Sonos documenté (4 septembre), corrections de
+`SONOS_SEED_IP` et du chemin des tests fusionnées (PR #1, 25 octobre).
 
 **La refonte énergie est terminée.** Le cycle de sommeil divise la consommation par 6,2 quand
 rien ne joue : 0,050 W contre 0,31 W éveillé. Relevé complet dans
@@ -29,10 +34,11 @@ chemin de flashage. Le constat complet est dans
 manquait, mais le sens de la mise à jour — *poussée*, elle exige que le boîtier rappelle le
 poste de développement, ce que ce réseau ne permet pas.
 
-Un **audit de sécurité** a été publié sur `origin/main` (`7a0e130`) par une autre séance.
-Il relève trois choses justes — transport en clair, validation insuffisante des commandes
-MQTT, dépendances non épinglées — mais **manque la fuite réelle** : `mqtt-user.env` est
-toujours lisible dans l'historique public. Voir la revue en fin de fichier.
+Un **audit de sécurité** (`docs/security-audit-2026-08-14.md`) relève trois choses justes —
+transport en clair, validation insuffisante des commandes MQTT, dépendances non épinglées — et
+manque la fuite réelle : `mqtt-user.env` est toujours lisible dans l'historique public. Au
+25 octobre, **aucune de ses remédiations n'est appliquée dans le firmware** ; le détail, point
+par point, est dans la section « Suivi de l'audit » en fin de fichier.
 
 Deux points à ne pas oublier :
 
@@ -537,3 +543,29 @@ Trois défauts successifs, aucun visible autrement qu'en exécutant sur la cible
 
 Résultat mesuré : 74 Ko téléchargés, décodage à demi-résolution, réduction et tramage en
 **1,0 s** au total.
+
+---
+
+## Suivi de l'audit de sécurité (25 octobre 2026)
+
+Vérification des remédiations de la section 5 de
+[docs/security-audit-2026-08-14.md](../docs/security-audit-2026-08-14.md), contre le code de
+`origin/main` (`a43cda0`).
+
+| Remédiation | État | Preuve |
+|---|---|---|
+| MQTT en TLS | **Non** | `src/mqtt.cpp:28` : `WiFiClient` en clair |
+| ACL minimales et compte dédié sur le broker | Hors dépôt, **non vérifiable** ici | — |
+| Rejeter une zone absente de la liste connue | **Non** | `src/main.cpp:223` accepte toute zone ; `docs/architecture.md` assume qu'une zone introuvable n'affiche rien |
+| Journaliser les commandes rejetées | **Non** | rien n'est rejeté, donc rien n'est journalisé ; dépend du point précédent |
+| VLAN IoT dédié, règles vers Sonos:1400 et broker | Documenté seulement | `docs/sonos-api.md`, README ; déploiement hors dépôt |
+| Versions de dépendances épinglées | **Non** | `platformio.ini` lignes 50-53 et 62 : plages `^` ; `Seeed_GFX` suivi sur une branche git, sans commit |
+| Version de PlatformIO épinglée en CI | **Non** | `.github/workflows/ci.yml` lignes 18 et 39 : `pip install --upgrade` |
+| Intégrité des artefacts externes | **Partiel** | la plateforme `pioarduino` est épinglée à une URL de version (`platformio.ini`), sans somme de contrôle |
+| Secure boot, chiffrement du flash | **Non** | optionnel selon l'audit ; à décider si la menace physique entre dans le périmètre |
+| `mqtt-user.env` dans l'historique public | **Non** | historique non réécrit ; le mot de passe a été changé (voir plus haut) |
+
+**À faire, dans l'ordre de l'audit** : épingler les dépendances et PlatformIO en CI (petit,
+sans risque) ; rejeter et journaliser les zones inconnues côté firmware, ce qui change le
+comportement décrit dans `docs/architecture.md` et demande une décision ; TLS MQTT, qui touche
+au broker et à Home Assistant.
